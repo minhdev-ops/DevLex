@@ -1,0 +1,230 @@
+{
+  "version": 1,
+  "terms": [
+    {
+      "id": "term_api_001",
+      "acronym": "API",
+      "fullNameEn": "Application Programming Interface",
+      "fullNameVi": "Giao diện Lập trình Ứng dụng",
+      "shortDefinition": "Quy tắc cho phép các ứng dụng phần mềm giao tiếp và truyền nhận dữ liệu với nhau.",
+      "detailedExplanation": "### Ngữ cảnh vận hành\nAPI đóng vai trò cầu nối giữa ứng dụng Client và Server. Trong quy trình phát triển phần mềm, API được thiết kế ở giai đoạn Back-end, được kiểm thử bằng integration test và được frontend hoặc các dịch vụ khác gọi qua HTTP.",
+      "metaphorAnalogy": "API hoạt động giống như một người phục vụ nhà hàng: tiếp nhận yêu cầu từ khách hàng, truyền tới nhà bếp và mang kết quả quay trở lại.",
+      "diagramUrl": null,
+      "categoryTags": ["Backend", "Web Service", "Architecture"],
+      "difficulty": "Beginner",
+      "prerequisites": ["term_http_002"],
+      "relatedTerms": ["term_rest_010", "term_json_005", "term_jwt_008"],
+      "career": "backend",
+      "attribution": [
+        {"component": "tier_1", "source": "NIST CSRC Glossary", "author": "NIST CSRC", "license": "Public Domain", "authorLink": "https://csrc.nist.gov/glossary", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt và tóm tắt"},
+        {"component": "tier_2", "source": "MDN Web Docs", "author": "Mozilla Contributors", "license": "CC BY-SA 2.5", "authorLink": "https://developer.mozilla.org/en-US/docs/Glossary/API", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt và đơn giản hóa bởi Hệ thống IT Glossary"}
+      ]
+    },
+    {
+      "id": "term_http_002",
+      "acronym": "HTTP",
+      "fullNameEn": "Hypertext Transfer Protocol",
+      "fullNameVi": "Giao thức truyền tải siêu văn bản",
+      "shortDefinition": "Giao thức truyền tin cậy nền tảng của Web, quy định cách client và server trao đổi yêu cầu/phản hồi.",
+      "detailedExplanation": "### Ngữ cảnh vận hành\nMỗi khi trình duyệt tải một trang web, nó gửi HTTP request tới server và nhận HTTP response kèm mã trạng thái (200, 404, 500...). API hiện đại gần như luôn chạy trên HTTP.",
+      "metaphorAnalogy": "HTTP giống như quy ước ngôn ngữ chung khi gọi điện tổng đài: nhấc máy (kết nối), nói mã số yêu cầu (method + URL), nhận trả lời (response).",
+      "diagramUrl": null,
+      "categoryTags": ["Network", "Web"],
+      "difficulty": "Beginner",
+      "prerequisites": [],
+      "relatedTerms": ["term_api_001", "term_rest_010", "term_json_005"],
+      "career": "backend",
+      "attribution": [
+        {"component": "tier_1", "source": "MDN Web Docs", "author": "Mozilla Contributors", "license": "CC BY-SA 2.5", "authorLink": "https://developer.mozilla.org/en-US/docs/Web/HTTP", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt và đơn giản hóa bởi Hệ thống IT Glossary"}
+      ]
+    },
+    {
+      "id": "term_json_005",
+      "acronym": "JSON",
+      "fullNameEn": "JavaScript Object Notation",
+      "fullNameVi": "Ký pháp đối tượng JavaScript",
+      "shortDefinition": "Định dạng văn bản nhỏ gọn, dễ đọc, chuẩn mở để trao đổi dữ liệu giữa các hệ thống.",
+      "detailedExplanation": "### Ngữ cảnh vận hành\nJSON là định dạng payload phổ biến nhất của Web API hiện đại: request body, response body, cấu hình file, và dữ liệu lưu trong NoSQL.",
+      "metaphorAnalogy": "JSON giống như mẫu đơn chuẩn in sẵn: mọi người đều biết điền và đọc, không cần giải thích thêm.",
+      "diagramUrl": null,
+      "categoryTags": ["Data Format", "Web"],
+      "difficulty": "Beginner",
+      "prerequisites": [],
+      "relatedTerms": ["term_api_001", "term_rest_010"],
+      "career": "frontend",
+      "attribution": [
+        {"component": "tier_1", "source": "MDN Web Docs", "author": "Mozilla Contributors", "license": "CC BY-SA 2.5", "authorLink": "https://developer.mozilla.org/en-US/docs/Web/JSON", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt"}
+      ]
+    },
+    {
+      "id": "term_rest_010",
+      "acronym": "REST",
+      "fullNameEn": "Representational State Transfer",
+      "fullNameVi": "Chuyển trạng thái biểu diễn",
+      "shortDefinition": "Kiến trúc thiết kế API sử dụng các phương thức HTTP tiêu chuẩn (GET, POST, PUT, DELETE) trên tài nguyên định danh bằng URL.",
+      "detailedExplanation": "### Ngữ cảnh vận hành\nREST API là lựa chọn mặc định khi xây dựng backend service. Mỗi tài nguyên (user, order) là một URL; hành động là HTTP method; trạng thái trả về qua HTTP status code.",
+      "metaphorAnalogy": "REST giống hệ thống thư viện: tra sách theo mã giá (URL), mượn/trả theo quy trình cố định (method), nhận biên nhận (status code).",
+      "diagramUrl": null,
+      "categoryTags": ["Backend", "Architecture"],
+      "difficulty": "Beginner",
+      "prerequisites": ["term_api_001", "term_http_002"],
+      "relatedTerms": ["term_json_005", "term_jwt_008"],
+      "career": "backend",
+      "attribution": [
+        {"component": "tier_1", "source": "MDN Web Docs", "author": "Mozilla Contributors", "license": "CC BY-SA 2.5", "authorLink": "https://developer.mozilla.org/en-US/docs/Glossary/REST", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt"}
+      ]
+    },
+    {
+      "id": "term_jwt_008",
+      "acronym": "JWT",
+      "fullNameEn": "JSON Web Token",
+      "fullNameVi": "Chuẩn token JSON Web",
+      "shortDefinition": "Chuẩn mở định dạng mã hóa an toàn dùng để truyền thông tin xác thực người dùng giữa hai bên.",
+      "detailedExplanation": "### Ngữ cảnh vận hành\nSau khi đăng nhập, server phát JWT cho client; client đính kèm token trong header Authorization của mọi request tiếp theo. Server chỉ cần verify chữ ký, không phải tra session.",
+      "metaphorAnalogy": "JWT giống vòng tay lễ hội có chữ ký bảo vệ: ban tổ chức không cần kiểm tra lại danh tính mỗi lần bạn qua cổng, chỉ cần xác nhận vòng tay còn hiệu lực.",
+      "diagramUrl": null,
+      "categoryTags": ["Security", "Backend", "Web Service"],
+      "difficulty": "Intermediate",
+      "prerequisites": ["term_api_001", "term_json_005"],
+      "relatedTerms": ["term_rest_010"],
+      "career": "backend",
+      "attribution": [
+        {"component": "tier_1", "source": "MDN Web Docs", "author": "Mozilla Contributors", "license": "CC BY-SA 2.5", "authorLink": "https://developer.mozilla.org/en-US/docs/Glossary/JWT", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt"},
+        {"component": "tier_2", "source": "NIST CSRC Glossary", "author": "NIST CSRC", "license": "Public Domain", "authorLink": "https://csrc.nist.gov/glossary", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt và tóm tắt"}
+      ]
+    },
+    {
+      "id": "term_k8s_001",
+      "acronym": "Kubernetes",
+      "fullNameEn": "Kubernetes",
+      "fullNameVi": "Hệ thống điều phối Container Kubernetes",
+      "shortDefinition": "Nền tảng mã nguồn mở tự động hóa việc triển khai, mở rộng và quản lý ứng dụng container.",
+      "detailedExplanation": "### Ngữ cảnh vận hành\nTrong quy trình DevOps, sau khi app được đóng gói thành Docker image và đẩy qua CI/CD pipeline, Kubernetes (K8s) nhận trách nhiệm chạy các container đó trên cụm server: tự cân bằng tải, tự khởi động lại khi lỗi, tự scale theo lưu lượng.",
+      "metaphorAnalogy": "K8s giống một điều phối viên dàn nhạc giao hưởng: mỗi container là một nhạc công, K8s quyết định ai chơi lúc nào, và nếu ai đó rời ghế thì lập tức có người thay.",
+      "diagramUrl": null,
+      "categoryTags": ["DevOps", "Cloud Native"],
+      "difficulty": "Advanced",
+      "prerequisites": ["term_docker_020"],
+      "relatedTerms": ["term_cicd_021", "term_iaas_022"],
+      "career": "devops",
+      "attribution": [
+        {"component": "tier_1", "source": "CNCF Cloud Native Glossary", "author": "Cloud Native Glossary Authors", "license": "CC BY 4.0", "authorLink": "https://github.com/cncf/glossary/blob/main/glossary/kubernetes.yaml", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt"}
+      ]
+    },
+    {
+      "id": "term_docker_020",
+      "acronym": "Docker",
+      "fullNameEn": "Docker",
+      "fullNameVi": "Nền tảng đóng gói Container",
+      "shortDefinition": "Công cụ đóng gói ứng dụng cùng toàn bộ phụ thuộc vào container chạy độc lập trên mọi môi trường.",
+      "detailedExplanation": "### Ngữ cảnh vận hành\nDocker giải quyết vấn đề 'chạy được trên máy tôi nhưng hỏng trên server': môi trường phát triển, staging và production dùng chung một image.",
+      "metaphorAnalogy": "Container Docker giống container vận tải biển: bên trong chứa gì không quan trọng, mọi cần cẩu (máy chủ) đều xử lý cùng một kích thước chuẩn.",
+      "diagramUrl": null,
+      "categoryTags": ["DevOps", "Cloud Native"],
+      "difficulty": "Intermediate",
+      "prerequisites": [],
+      "relatedTerms": ["term_k8s_001", "term_cicd_021"],
+      "career": "devops",
+      "attribution": [
+        {"component": "tier_1", "source": "CNCF Cloud Native Glossary", "author": "Cloud Native Glossary Authors", "license": "CC BY 4.0", "authorLink": "https://github.com/cncf/glossary/blob/main/glossary/container.yaml", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt"}
+      ]
+    },
+    {
+      "id": "term_cicd_021",
+      "acronym": "CI/CD",
+      "fullNameEn": "Continuous Integration / Continuous Delivery",
+      "fullNameVi": "Tích hợp liên tục / Phân phối liên tục",
+      "shortDefinition": "Quy trình tự động build, test và phát hành mã nguồn mỗi khi có thay đổi được hợp nhất.",
+      "detailedExplanation": "### Ngữ cảnh vận hành\nMỗi Pull Request kích hoạt pipeline: build → unit test → integration test → deploy staging. Lỗi được phát hiện trong phút thay vì cuối sprint.",
+      "metaphorAnalogy": "CI/CD giống dây chuyền kiểm tra chất lượng nhà máy: mỗi sản phẩm (code) mới đều qua cùng một chuỗi test tự động trước khi đóng gói.",
+      "diagramUrl": null,
+      "categoryTags": ["DevOps"],
+      "difficulty": "Intermediate",
+      "prerequisites": ["term_docker_020"],
+      "relatedTerms": ["term_k8s_001", "term_scrum_030"],
+      "career": "devops",
+      "attribution": [
+        {"component": "tier_1", "source": "CNCF Cloud Native Glossary", "author": "Cloud Native Glossary Authors", "license": "CC BY 4.0", "authorLink": "https://github.com/cncf/glossary/blob/main/glossary/continuous_integration.yaml", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt"}
+      ]
+    },
+    {
+      "id": "term_iaas_022",
+      "acronym": "IaaS",
+      "fullNameEn": "Infrastructure as a Service",
+      "fullNameVi": "Hạ tầng như một dịch vụ",
+      "shortDefinition": "Mô hình thuê hạ tầng máy chủ, lưu trữ, mạng theo dùng bao nhiêu trả tiền bấy nhiêu thay vì tự mua phần cứng.",
+      "detailedExplanation": "### Ngữ cảnh vận hành\nIaaS là tầng dưới cùng của đám mây (kèm PaaS, SaaS): team DevOps khởi tạo VM/VPC trên AWS/Azure thay vì đặt server vật lý trong phòng máy.",
+      "metaphorAnalogy": "IaaS giống thuê đất trống xây nhà: điện nước (phần cứng) có sẵn, bạn tự quyết định xây gì trên đó.",
+      "diagramUrl": null,
+      "categoryTags": ["Cloud"],
+      "difficulty": "Beginner",
+      "prerequisites": [],
+      "relatedTerms": ["term_k8s_001"],
+      "career": "devops",
+      "attribution": [
+        {"component": "tier_1", "source": "NIST CSRC Glossary", "author": "NIST CSRC", "license": "Public Domain", "authorLink": "https://csrc.nist.gov/glossary", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt"},
+        {"component": "tier_2", "source": "CNCF Cloud Native Glossary", "author": "Cloud Native Glossary Authors", "license": "CC BY 4.0", "authorLink": "https://github.com/cncf/glossary/blob/main/glossary/iaas.yaml", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt"}
+      ]
+    },
+    {
+      "id": "term_spa_040",
+      "acronym": "SPA",
+      "fullNameEn": "Single Page Application",
+      "fullNameVi": "Ứng dụng một trang",
+      "shortDefinition": "Web app chỉ tải một trang HTML duy nhất, cập nhật nội dung động qua JavaScript và API.",
+      "detailedExplanation": "### Ngữ cảnh vận hành\nReact/Vue/Angular dựng SPA: điều hướng và dữ liệu được fetch qua API mà không tải lại trang, cho trải nghiệm mượt như app native.",
+      "metaphorAnalogy": "SPA giống nhà hàng buffet: bạn vào cửa một lần (tải trang), rồi tự lấy món (gọi API) mà không cần quay ra cửa lại.",
+      "diagramUrl": null,
+      "categoryTags": ["Frontend", "Web"],
+      "difficulty": "Intermediate",
+      "prerequisites": ["term_api_001", "term_json_005"],
+      "relatedTerms": ["term_ssr_041"],
+      "career": "frontend",
+      "attribution": [
+        {"component": "tier_1", "source": "MDN Web Docs", "author": "Mozilla Contributors", "license": "CC BY-SA 2.5", "authorLink": "https://developer.mozilla.org/en-US/docs/Glossary/SPA", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt"}
+      ]
+    },
+    {
+      "id": "term_ssr_041",
+      "acronym": "SSR",
+      "fullNameEn": "Server-Side Rendering",
+      "fullNameVi": "Kết xuất phía máy chủ",
+      "shortDefinition": "Kỹ thuật dựng HTML đầy đủ trên server trước khi gửi cho trình duyệt, cải thiện tốc độ tải đầu và SEO.",
+      "detailedExplanation": "### Ngữ cảnh vận hành\nNext.js/Nuxt dùng SSR để người dùng thấy nội dung ngay lần tải đầu, khắc phục điểm yếu SEO của SPA thuần.",
+      "metaphorAnalogy": "SSR giống đặt bánh online: bánh đã nướng xong giao tận nơi (HTML hoàn chỉnh) thay vì gửi nguyên liệu buộc bạn tự nướng (SPA).",
+      "diagramUrl": null,
+      "categoryTags": ["Frontend", "Web"],
+      "difficulty": "Intermediate",
+      "prerequisites": ["term_spa_040"],
+      "relatedTerms": [],
+      "career": "frontend",
+      "attribution": [
+        {"component": "tier_1", "source": "MDN Web Docs", "author": "Mozilla Contributors", "license": "CC BY-SA 2.5", "authorLink": "https://developer.mozilla.org/en-US/docs/Glossary/Server-side_rendering", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt"}
+      ]
+    },
+    {
+      "id": "term_scrum_030",
+      "acronym": "Scrum",
+      "fullNameEn": "Scrum",
+      "fullNameVi": "Khung làm việc Agile theo Sprint",
+      "shortDefinition": "Khung làm việc Agile chia dự án thành các Sprint ngắn, kèm lễ họp đứng, lập kế hoạch và retrospective.",
+      "detailedExplanation": "### Ngữ cảnh vận hành\nTeam nhận backlog, cắt thành Sprint 1–2 tuần; mỗi ngày daily standup; kết thúc sprint là demo + retrospective. Pull Request và Code Review là luồng phối hợp kỹ thuật trong Sprint.",
+      "metaphorAnalogy": "Scrum giống đội rowing: mọi người chèo theo cùng nhịp đếm (sprint), thuyền trưởng chỉnh hướng sau mỗi chặng (retrospective).",
+      "diagramUrl": null,
+      "categoryTags": ["Process", "Communication"],
+      "difficulty": "Beginner",
+      "prerequisites": [],
+      "relatedTerms": ["term_cicd_021"],
+      "career": "project_comm",
+      "attribution": [
+        {"component": "tier_1", "source": "MDN Web Docs", "author": "Mozilla Contributors", "license": "CC BY-SA 2.5", "authorLink": "https://developer.mozilla.org/en-US/docs/MDN_Community/MDN_Policies/Scrum_process", "modificationStatus": "Nội dung gốc đã được dịch sang tiếng Việt"}
+      ]
+    }
+  ],
+  "aliases": [
+    {"termId": "term_k8s_001", "alias": "k8s", "namingRuleNote": "Quy ước numeronym: chữ K đầu + số 8 (thay cho 8 ký tự \"ubernete\" ở giữa) + chữ s cuối."},
+    {"termId": "term_cicd_021", "alias": "cicd", "namingRuleNote": "Viết tắt bỏ dấu gạch chéo: Continuous Integration / Continuous Delivery."},
+    {"termId": "term_iaas_022", "alias": "iaas", "namingRuleNote": "Cấu trúc X-aaS: Infrastructure as a Service."},
+    {"termId": "term_api_001", "alias": "api", "namingRuleNote": null}
+  ]
+}

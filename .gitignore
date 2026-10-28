@@ -1,0 +1,29 @@
+# OS
+.DS_Store
+
+# Tooling local
+.qoder/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# Local env / secrets
+.env
+*.local
+
+# Artifacts
+dist/
+build/
+node_modules/
+
+# Laravel (chi tiết trong backend/.gitignore)
+backend/vendor/
+backend/storage/*.key
+backend/bootstrap/cache/*.php
+
+# Flutter (chi tiết trong frontend/.gitignore)
+frontend/.dart_tool/
+frontend/.flutter-plugins*
+frontend/build/

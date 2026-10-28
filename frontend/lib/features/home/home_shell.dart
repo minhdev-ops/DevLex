@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../contribute/contribution_screen.dart';
 import '../decoder/decoder_screen.dart';
 import '../quiz/quiz_screen.dart';
 import '../roadmap/roadmap_screen.dart';
@@ -20,6 +21,7 @@ class _HomeShellState extends State<HomeShell> {
     RoadmapScreen(),
     DecoderScreen(),
     QuizScreen(),
+    ContributionScreen(),
   ];
 
   @override
@@ -34,6 +36,7 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(icon: Icon(Icons.account_tree_outlined), label: 'Lộ trình'),
           NavigationDestination(icon: Icon(Icons.auto_fix_high_outlined), label: 'Giải mã'),
           NavigationDestination(icon: Icon(Icons.style_outlined), label: 'Ôn tập'),
+          NavigationDestination(icon: Icon(Icons.groups_outlined), label: 'Đóng góp'),
         ],
       ),
     );

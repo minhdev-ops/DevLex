@@ -162,7 +162,36 @@ class GlossaryRepository {
     }
 
     scored.sort((a, b) => b.similarity.compareTo(a.similarity));
-    return scored.take(limit).toList();
+    return _collapseByConcept(scored).take(limit).toList();
+  }
+
+  /// Hai dòng cùng `concept` là một khái niệm nhiều nguồn chứ không phải hai kết quả
+  /// khác nhau: giữ lại một dòng (ưu tiên bản đã có tên tiếng Việt) và đếm số nguồn gộp.
+  List<SearchResult> _collapseByConcept(List<SearchResult> ordered) {
+    final out = <SearchResult>[];
+    final slotOf = <String, int>{};
+
+    for (final r in ordered) {
+      final key = r.term.concept;
+      if (key == null || key.isEmpty) {
+        out.add(r);
+        continue;
+      }
+
+      final slot = slotOf[key];
+      if (slot == null) {
+        slotOf[key] = out.length;
+        out.add(r);
+        continue;
+      }
+
+      final kept = out[slot];
+      final preferIncoming = kept.term.needsTranslation && !r.term.needsTranslation;
+      final winner = preferIncoming ? r : kept;
+      out[slot] = winner.withSiblings(winner.siblingCount + 1);
+    }
+
+    return out;
   }
 
   /// Gợi ý cho Context Decoder-style highlight: acronym khớp chính xác trong văn bản.

@@ -262,6 +262,26 @@ class _NoMatchState extends StatelessWidget {
   }
 }
 
+Widget _badge(BuildContext context, String label, {IconData? icon}) {
+  final scheme = Theme.of(context).colorScheme;
+
+  return Container(
+    margin: const EdgeInsets.only(left: 6),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: scheme.primaryContainer,
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icon != null) ...[Icon(icon, size: 12, color: scheme.onPrimaryContainer), const SizedBox(width: 3)],
+        Text(label, style: Theme.of(context).textTheme.labelSmall),
+      ],
+    ),
+  );
+}
+
 class _TermResultTile extends StatelessWidget {
   const _TermResultTile({required this.result, required this.onTap});
 
@@ -287,15 +307,10 @@ class _TermResultTile extends StatelessWidget {
               ),
             ),
             if (result.similarity > 0 && result.similarity < 1)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text('${(result.similarity * 100).round()}%',
-                    style: Theme.of(context).textTheme.labelSmall),
-              ),
+              _badge(context, '${(result.similarity * 100).round()}%'),
+            if (result.siblingCount > 0)
+              _badge(context, '${result.siblingCount + 1} nguồn',
+                  icon: Icons.fact_check_outlined),
           ],
         ),
         subtitle: Column(

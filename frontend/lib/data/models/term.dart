@@ -157,11 +157,26 @@ class TermAlias {
 }
 
 class SearchResult {
-  const SearchResult({required this.term, required this.similarity, this.matchedAlias});
+  const SearchResult({
+    required this.term,
+    required this.similarity,
+    this.matchedAlias,
+    this.siblingCount = 0,
+  });
 
   final Term term;
   final double similarity;
   final TermAlias? matchedAlias;
+
+  /// Số mục từ khác cùng khái niệm (nhiều nguồn nói về một thứ) đã gộp vào dòng này.
+  final int siblingCount;
+
+  SearchResult withSiblings(int count) => SearchResult(
+        term: term,
+        similarity: similarity,
+        matchedAlias: matchedAlias,
+        siblingCount: count,
+      );
 }
 
 enum LearnStatus { learned, needsReview }

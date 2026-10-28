@@ -17,20 +17,28 @@ use Illuminate\Support\Facades\Http;
 class ImportGlossary extends Command
 {
     protected $signature = 'glossary:import
-        {--source=all : mdn | cncf | nist | all}
+        {--source=all : mdn | cncf | nist | rfc4949 | all}
         {--limit=0 : giới hạn số term mỗi nguồn (0 = toàn bộ)}
         {--pages=3 : số trang danh mục NIST để khám phá slug}
+        {--chunk=0 : NIST: ghi DB sau mỗi N slug (0 = gộp hết rồi ghi một lần)}
         {--dry-run : chỉ fetch+parse+xuất JSON ra storage, không ghi DB}';
 
-    protected $description = 'Ingest thuật ngữ uy tín (NIST + MDN + CNCF) vào Unified Schema kèm chấm điểm nguồn';
+    protected $description = 'Ingest thuật ngữ uy tín (NIST + MDN + CNCF + RFC 4949) vào Unified Schema kèm chấm điểm nguồn';
 
     public function handle(): int
     {
         $source = strtolower($this->option('source') ?: 'all');
         $limit = (int) $this->option('limit');
+        $chunk = (int) $this->option('chunk');
         $dryRun = (bool) $this->option('dry-run');
 
         $sources = $source === 'all' ? ['nist', 'mdn', 'cncf', 'rfc4949'] : [$source];
+
+        // NIST có ~10.400 slug, mỗi slug một request: phải ghi DB theo lô để
+        // một lần chạy hỏng giữa chừng không xóa sạch hàng chục phút đã tải.
+        if ($source === 'nist' && $chunk > 0 && ! $dryRun) {
+            return $this->handleNistChunked($limit, $chunk);
+        }
 
         $parsed = [];
         foreach ($sources as $src) {
@@ -69,7 +77,7 @@ class ImportGlossary extends Command
      * thì tăng confidence (corroboration) và ghi danh sách nguồn xác nhận.
      *
      * @param  ParsedTerm[]  $terms
-     * @return array<int, array<string, mixed>>  dòng đã sẵn sàng ghi DB/JSON
+     * @return array<int, array<string, mixed>> dòng đã sẵn sàng ghi DB/JSON
      */
     private function corroborate(array $terms): array
     {
@@ -219,18 +227,102 @@ class ImportGlossary extends Command
     private function ingestNist(int $limit): array
     {
         $pages = max(1, (int) $this->option('pages'));
+
+        return $this->fetchNistTerms($this->discoverNistSlugs($pages, $limit), $ignored);
+    }
+
+    /**
+     * Ghi DB theo lô cho NIST; mỗi lô tự nạp lại được nên chạy dở vẫn còn.
+     */
+    private function handleNistChunked(int $limit, int $chunk): int
+    {
+        $pages = max(1, (int) $this->option('pages'));
         $slugs = $this->discoverNistSlugs($pages, $limit);
+        $total = count($slugs);
+        $this->info("[nist] {$total} slug đã khám phá, ghi theo lô {$chunk}");
+
+        $written = 0;
+        $crossRefs = [];
+        foreach (array_chunk($slugs, $chunk) as $i => $part) {
+            $rows = $this->corroborate($this->fetchNistTerms($part, $crossRefs));
+            $written += $this->persist($rows);
+            $this->info(sprintf(
+                '[nist] lô %d: +%d dòng (đã xử lý %d/%d slug, tổng %d)',
+                $i + 1,
+                count($rows),
+                min(count($slugs), ($i + 1) * $chunk),
+                $total,
+                $written
+            ));
+        }
+
+        $aliases = $this->persistNistAliases($crossRefs);
+        $this->info("[nist] ghi {$aliases} alias từ trang trỏ chéo (stub)");
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Trang stub NIST ("3DES" -> triple_data_encryption_standard) không có định nghĩa
+     * nhưng cho biết cách gọi nào thuộc khái niệm nào. Chỉ ghi alias khi mục đích
+     * đã có trong DB (thứ tự quệt không đảm bảo đích được nạp trước).
+     *
+     * @param  array<int, array{alias:string, target:string}>  $crossRefs
+     */
+    private function persistNistAliases(array $crossRefs): int
+    {
+        if ($crossRefs === []) {
+            return 0;
+        }
+
+        $existing = Term::query()->where('id', 'like', 'nist_%')->pluck('id')->flip();
+        $count = 0;
+
+        foreach ($crossRefs as $ref) {
+            $alias = trim($ref['alias']);
+            if ($alias === '' || mb_strlen($alias) > 100) {
+                continue;
+            }
+            $targetId = 'nist_'.TermText::slugify($ref['target'], 40);
+            if (! $existing->has($targetId)) {
+                continue;
+            }
+
+            TermAlias::query()->updateOrCreate(
+                ['alias' => mb_strtolower($alias)],
+                ['term_id' => $targetId, 'naming_rule_note' => 'NIST CSRC: trang trỏ chéo (stub)'],
+            );
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param  string[]  $slugs
+     * @param  array<int, array{alias:string, target:string}>  $crossRefs  gom liên kết chéo từ trang stub
+     * @return ParsedTerm[]
+     */
+    private function fetchNistTerms(array $slugs, array &$crossRefs): array
+    {
         $parser = new NistParser;
         $out = [];
 
         foreach ($slugs as $slug) {
             $html = Http::withHeaders(['User-Agent' => 'DevLex-Glossary'])
                 ->timeout(20)
+                ->retry(2, 400, throw: false)
                 ->get('https://csrc.nist.gov/glossary/term/'.$slug)
                 ->body();
 
             if ($term = $parser->parse($slug, $html)) {
                 $out[] = $term;
+
+                continue;
+            }
+
+            foreach ($parser->crossReferences($slug, $html) as $ref) {
+                $crossRefs[$ref['alias'].'|'.$ref['target']] = $ref;
             }
         }
 
@@ -248,13 +340,20 @@ class ImportGlossary extends Command
         for ($p = 1; $p <= $pages; $p++) {
             $html = Http::withHeaders(['User-Agent' => 'DevLex-Glossary'])
                 ->timeout(20)
+                ->retry(2, 400, throw: false)
                 ->get("https://csrc.nist.gov/glossary?export=all&page={$p}")
                 ->body();
 
+            $found = 0;
             if (preg_match_all('~<a href="/glossary/term/([A-Za-z0-9_\-]+)"~', $html, $m)) {
                 foreach ($m[1] as $s) {
                     $slugs[$s] = true;
+                    $found++;
                 }
+            }
+
+            if ($found === 0) {
+                break; // hết danh mục, không gọi thêm
             }
 
             if ($limit > 0 && count($slugs) >= $limit) {

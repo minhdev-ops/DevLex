@@ -90,6 +90,47 @@ class NistParser
         return trim(preg_replace('~\s*-\s*Glossary\s*\|\s*CSRC\s*$~u', '', html_entity_decode($t[1])));
     }
 
+    /**
+     * Trang stub của NIST chỉ liệt kê "Abbreviations / Acronyms / Synonyms" rồi trỏ
+     * sang mục từ thật (VD: 3DES -> triple_data_encryption_standard), không có
+     * Definitions -> parse() trả null. Những trang này vẫn là dữ liệu có giá trị:
+     * chúng cho biết cách viết tắt nào thuộc về khái niệm nào.
+     *
+     * @return array<int, array{alias:string, target:string}>
+     */
+    public function crossReferences(string $slug, string $html): array
+    {
+        if (! preg_match_all('~<a\s+href="/glossary/term/([A-Za-z0-9_\-]+)"[^>]+id="term-abbr-link-\d+"[^>]*>(.*?)</a>~is', $html, $links, PREG_SET_ORDER)) {
+            return [];
+        }
+
+        $out = [];
+        $firstTarget = $links[0][1] ?? '';
+        $title = $this->title($html);
+        if ($title !== '' && $firstTarget !== '' && $firstTarget !== $slug) {
+            $out[] = ['alias' => $title, 'target' => $firstTarget];
+        }
+
+        foreach ($links as $link) {
+            $label = trim(preg_replace('~\s+~u', ' ', html_entity_decode(strip_tags($link[2]))));
+            if ($label !== '' && $label !== $title && $link[1] !== $slug) {
+                $out[] = ['alias' => $label, 'target' => $link[1]];
+            }
+        }
+
+        // Synonym không có trang riêng (span id="term-abbr-link-N"), gắn vào đích đầu tiên.
+        if (preg_match_all('~<span\s+id="term-abbr-text-\d+">(.*?)</span>~is', $html, $spans)) {
+            foreach ($spans[1] as $span) {
+                $label = trim(preg_replace('~\s+~u', ' ', html_entity_decode(strip_tags($span))));
+                if ($label !== '' && $firstTarget !== '' && $label !== $title) {
+                    $out[] = ['alias' => $label, 'target' => $firstTarget];
+                }
+            }
+        }
+
+        return $out;
+    }
+
     /** @return string[] chỉ lấy nhãn link acronym (id="term-abbr-link-N"), bỏ danh sách nguồn */
     private function abbreviations(string $seg): array
     {

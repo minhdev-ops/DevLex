@@ -97,6 +97,28 @@ class ApiEndpointTest extends TestCase
         $this->assertContains('nist_2fa', $ids);
     }
 
+    public function test_search_finds_term_through_multi_word_alias(): void
+    {
+        // Alias NIST lưu dạng đẹp có dấu cách ("Triple Data Encryption Standard");
+        // chính mục từ lại chỉ mang tên viết tắt TDEA -> chỉ alias mới khớp query.
+        $term = $this->term([
+            'id' => 'nist_triple-data-encryption-standard',
+            'tier_1_acronym' => 'TDEA',
+            'tier_1_full_name_en' => 'TDEA',
+        ]);
+        TermAlias::create([
+            'term_id' => $term->id,
+            'alias' => 'Triple Data Encryption Standard',
+            'naming_rule_note' => 'NIST CSRC: trang trỏ chéo (stub)',
+        ]);
+
+        $res = $this->getJson('/api/v1/terms/search?q='.urlencode('triple data encryption standard'));
+        $res->assertOk();
+        $first = $res->json('data.0');
+        $this->assertSame('nist_triple-data-encryption-standard', $first['id']);
+        $this->assertSame('Triple Data Encryption Standard', $first['matched_alias']['alias']);
+    }
+
     public function test_show_returns_three_tier_shape(): void
     {
         $this->term();

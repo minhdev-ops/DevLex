@@ -175,6 +175,26 @@ MD
         $this->assertSame('abstraction', $abstraction->fullNameEn);
     }
 
+    public function test_nist_stub_page_yields_cross_references(): void
+    {
+        // Trang "3DES" của NIST không có Definitions, chỉ trỏ sang mục thật.
+        $html = '<title>3DES - Glossary | CSRC</title><div class="glossary-definition">'
+            .'<a href="/glossary/term/triple_data_encryption_standard" id="term-abbr-link-0">Triple Data Encryption Standard</a>'
+            .'<span id="term-abbr-text-1">Triple DES (TDEA)</span>'
+            .'</div>';
+
+        $refs = (new NistParser)->crossReferences('3des', $html);
+
+        $this->assertSame([
+            ['alias' => '3DES', 'target' => 'triple_data_encryption_standard'],
+            ['alias' => 'Triple Data Encryption Standard', 'target' => 'triple_data_encryption_standard'],
+            ['alias' => 'Triple DES (TDEA)', 'target' => 'triple_data_encryption_standard'],
+        ], $refs);
+
+        // Trang không có link viết tắt -> không bịa quan hệ.
+        $this->assertSame([], (new NistParser)->crossReferences('3des', '<title>x - Glossary | CSRC</title>nope'));
+    }
+
     public function test_nist_skips_page_without_definition_block(): void
     {
         $this->assertNull((new NistParser)->parse('missing', '<title>x - Glossary | CSRC</title><main>nope</main>'));

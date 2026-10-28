@@ -26,7 +26,11 @@ class TermController extends Controller
         $like = str_replace(['%', '_'], ['\%', '\_'], $normalized);
         $wantFuzzy = $request->boolean('fuzzy', true);
 
-        $exactAlias = TermAlias::with('term')->whereRaw('LOWER(alias) = ?', [$normalized])->first();
+        // Alias được lưu dạng đẹp ("Triple Data Encryption Standard"), nên so khớp
+        // ở chuẩn đã bỏ khoảng trắng/gạch nối ở cả hai phía.
+        $exactAlias = TermAlias::with('term')
+            ->whereRaw($this->normalizeExpr('alias').' = ?', [$normalized])
+            ->first();
 
         $candidates = Term::query()
             ->where(function ($sql) use ($like, $query) {

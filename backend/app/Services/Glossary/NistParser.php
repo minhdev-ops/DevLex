@@ -61,7 +61,7 @@ class NistParser
         }
 
         return new ParsedTerm(
-            id: 'nist_'.TermText::slugify($slug, 40),
+            id: TermText::idFor('nist_', $slug),
             source: 'nist',
             acronym: $acronym,
             fullNameEn: $fullName,

@@ -266,6 +266,17 @@ MD
         $this->assertSame(100, SourceRegistry::corroborate(98, 5));
     }
 
+    public function test_id_for_respects_column_budget_without_colliding(): void
+    {
+        $this->assertSame('nist_access-control-list', TermText::idFor('nist_', 'access_control_list'));
+
+        // Slug dài hơn cỡ cột: phải cắt + gắn hash để hai tên gần giống không đè nhau.
+        $a = TermText::idFor('nist_', str_repeat('a', 80));
+        $b = TermText::idFor('nist_', str_repeat('a', 79).'b');
+        $this->assertSame(64, strlen($a));
+        $this->assertNotSame($a, $b);
+    }
+
     public function test_concept_key_normalizes_name_and_refuses_empty(): void
     {
         $this->assertSame('accesscontrollist', TermText::conceptKey('Access Control List'));

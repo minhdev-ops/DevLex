@@ -51,6 +51,25 @@ final class TermText
     }
 
     /**
+     * Id an toàn cho cột varchar($max): prefix + slug. Slug bị cụt thì thêm hậu tố
+     * hash của toàn bộ slug để hai tên dài gần giống nhau không đè lên nhau
+     * (NIST có tên dài hơn cả giới hạn id, ví dụ american-registry-for-internet-numbers).
+     */
+    public static function idFor(string $prefix, string $value, int $max = 64): string
+    {
+        $slug = self::slugify($value, PHP_INT_MAX);
+        $budget = max(1, $max - strlen($prefix));
+
+        if (strlen($slug) <= $budget) {
+            return $prefix.$slug;
+        }
+
+        $hash = dechex(crc32($slug));
+
+        return $prefix.substr($slug, 0, $budget - strlen($hash) - 1).'_'.$hash;
+    }
+
+    /**
      * Khóa khái niệm để nối các mục từ trùng tên giữa các nguồn (NIST/MDN/RFC/CNCF
      * cùng định nghĩa "access control list"). Chỉ dựa trên tên đầy đủ, KHÔNG dựa
      * viết tắt, vì viết tắt dễ đụng độ ("AC" = access control hay alternating current).

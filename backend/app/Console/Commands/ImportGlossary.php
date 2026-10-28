@@ -12,6 +12,8 @@ use App\Services\Glossary\Rfc4949Parser;
 use App\Services\Glossary\SourceRegistry;
 use App\Services\Glossary\TermText;
 use Illuminate\Console\Command;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\Http;
 
 class ImportGlossary extends Command
@@ -21,6 +23,7 @@ class ImportGlossary extends Command
         {--limit=0 : giới hạn số term mỗi nguồn (0 = toàn bộ)}
         {--pages=110 : số trang danh mục NIST để khám phá slug (110 trang ~ 10.400 slug)}
         {--chunk=500 : NIST: ghi DB sau mỗi N slug (0 = gộp hết rồi ghi một lần)}
+        {--skip=0 : NIST: bỏ qua N slug đầu (hồi tiếp một đợt quệt bị dở dang)}
         {--dry-run : chỉ fetch+parse+xuất JSON ra storage, không ghi DB}';
 
     protected $description = 'Ingest thuật ngữ uy tín (NIST + MDN + CNCF + RFC 4949) vào Unified Schema kèm chấm điểm nguồn';
@@ -239,19 +242,27 @@ class ImportGlossary extends Command
         $pages = max(1, (int) $this->option('pages'));
         $slugs = $this->discoverNistSlugs($pages, $limit);
         $total = count($slugs);
-        $this->info("[nist] {$total} slug đã khám phá, ghi theo lô {$chunk}");
+
+        $skip = max(0, (int) $this->option('skip'));
+        if ($skip > 0) {
+            $slugs = array_slice($slugs, $skip);
+            $this->info("[nist] bỏ qua {$skip}/{$total} slug đầu (--skip)");
+        }
+
+        $this->info('[nist] '.count($slugs)." slug còn lại, ghi theo lô {$chunk}");
 
         $written = 0;
         $crossRefs = [];
+        $remaining = count($slugs);
         foreach (array_chunk($slugs, $chunk) as $i => $part) {
             $rows = $this->corroborate($this->fetchNistTerms($part, $crossRefs));
             $written += $this->persist($rows);
             $this->info(sprintf(
-                '[nist] lô %d: +%d dòng (đã xử lý %d/%d slug, tổng %d)',
+                '[nist] lô %d: +%d dòng (đã xử lý %d/%d slug, tổng %d dòng)',
                 $i + 1,
                 count($rows),
-                min(count($slugs), ($i + 1) * $chunk),
-                $total,
+                min($remaining, ($i + 1) * $chunk),
+                $remaining,
                 $written
             ));
         }
@@ -283,7 +294,7 @@ class ImportGlossary extends Command
             if ($alias === '' || mb_strlen($alias) > 100) {
                 continue;
             }
-            $targetId = 'nist_'.TermText::slugify($ref['target'], 40);
+            $targetId = TermText::idFor('nist_', $ref['target']);
             if (! $existing->has($targetId)) {
                 continue;
             }
@@ -308,12 +319,24 @@ class ImportGlossary extends Command
         $parser = new NistParser;
         $out = [];
 
-        foreach ($slugs as $slug) {
-            $html = Http::withHeaders(['User-Agent' => 'DevLex-Glossary'])
+        // ~10.400 slug, mỗi slug một trang HTML: gửi song song (vẫn khiêm tốn,
+        // 3 phiên đồng thời) để toàn bộ đợt quệt còn ~1 giờ thay vì ~4 giờ.
+        $responses = Http::pool(fn (Pool $pool) => array_map(
+            fn (string $slug) => $pool->withHeaders(['User-Agent' => 'DevLex-Glossary'])
                 ->timeout(20)
-                ->retry(2, 400, throw: false)
-                ->get('https://csrc.nist.gov/glossary/term/'.$slug)
-                ->body();
+                ->get($this->nistUrl($slug)),
+            array_values($slugs)
+        ), 3);
+
+        foreach (array_values($slugs) as $index => $slug) {
+            $response = $responses[$index] ?? null;
+            $html = ($response !== null && $response->successful())
+                ? $response->body()
+                : $this->fetchNistPage($slug);
+
+            if ($html === null) {
+                continue;   // lần chạy sau (hoặc --skip) sẽ bù trang thiếu
+            }
 
             if ($term = $parser->parse($slug, $html)) {
                 $out[] = $term;
@@ -327,6 +350,22 @@ class ImportGlossary extends Command
         }
 
         return $out;
+    }
+
+    private function nistUrl(string $slug): string
+    {
+        return 'https://csrc.nist.gov/glossary/term/'.$slug;
+    }
+
+    /** Bù đơn chiếc cho trang lỗi/hỏng trong lô; null nếu vẫn không lấy được. */
+    private function fetchNistPage(string $slug): ?string
+    {
+        $response = Http::withHeaders(['User-Agent' => 'DevLex-Glossary'])
+            ->timeout(20)
+            ->retry(2, 400, throw: false)
+            ->get($this->nistUrl($slug));
+
+        return $response->successful() ? $response->body() : null;
     }
 
     /**
@@ -374,8 +413,24 @@ class ImportGlossary extends Command
     private function persist(array $rows): int
     {
         $count = 0;
+        $failed = [];
+
         foreach ($rows as $row) {
-            Term::query()->updateOrCreate(['id' => $row['id']], $row);
+            // Ghi luôn khóa khái niệm để không phải chờ glossary:link-concepts
+            // chạy lại sau mỗi lần nạp (issue #8 giai đoạn 2).
+            $row['concept'] = TermText::conceptKey($row['tier_1_full_name_en'] ?? '') ?: null;
+
+            try {
+                Term::query()->updateOrCreate(['id' => $row['id']], $row);
+            } catch (QueryException $e) {
+                // Một dòng ghi hỏng không được xóa sạch công cả đợt quệt hàng giờ
+                // (đợt NIST từng chết vì id dài hơn cỡ cột varchar(40)).
+                $failed[] = $row['id'];
+                $this->warn("[persist] bỏ qua {$row['id']}: ".$e->getMessage());
+
+                continue;
+            }
+
             $count++;
 
             $acronym = $row['tier_1_acronym'];
@@ -385,6 +440,10 @@ class ImportGlossary extends Command
                     ['term_id' => $row['id'], 'naming_rule_note' => null],
                 );
             }
+        }
+
+        if ($failed !== []) {
+            $this->warn(sprintf('[persist] %d dòng lỗi: %s', count($failed), implode(', ', array_slice($failed, 0, 10))));
         }
 
         return $count;

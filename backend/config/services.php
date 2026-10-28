@@ -19,6 +19,15 @@ return [
         'token' => env('MODERATION_API_TOKEN'),
     ],
 
+    // Issue #8 (giai đoạn 1): webhook GitHub xác minh HMAC để nạp lại dữ liệu nguồn.
+    'github_webhook' => [
+        'secret' => env('GITHUB_WEBHOOK_SECRET'),
+        'repos' => [
+            'mdn/content' => 'mdn',
+            'cncf/glossary' => 'cncf',
+        ],
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

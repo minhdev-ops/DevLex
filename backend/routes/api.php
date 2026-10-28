@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\ContributionController;
 use App\Http\Controllers\Api\V1\DecoderController;
 use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TermController;
+use App\Http\Controllers\Api\V1\WebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -12,6 +13,9 @@ Route::prefix('v1')->group(function () {
 
     Route::post('decoder/extract', [DecoderController::class, 'extract']);
     Route::get('sync/delta', [SyncController::class, 'delta']);
+
+    // Issue #8: GitHub thông báo kho nguồn glossary thay đổi -> nạp lại theo nguồn.
+    Route::post('webhooks/github', [WebhookController::class, 'github']);
 
     // FR-COMM: Cổng đóng góp cộng đồng
     Route::post('contributions', [ContributionController::class, 'store']);

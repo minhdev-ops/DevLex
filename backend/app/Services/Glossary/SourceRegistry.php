@@ -8,6 +8,7 @@ namespace App\Services\Glossary;
  *
  * Tier 1 = tổ chức chuẩn hóa / chính phủ (NIST, W3C-browsers qua MDN)
  * Tier 2 = liên minh công nghiệp (CNCF)
+ * Tier 3 = nội bộ tự biên soạn, hoặc nguồn lạ chưa xếp hạng
  */
 final class SourceRegistry
 {
@@ -40,6 +41,13 @@ final class SourceRegistry
             'author' => 'IETF / R. Shirey',
             'tier' => 1,
             'confidence' => 93,
+        ],
+        'editorial' => [
+            'label' => 'DevLex Editorial (tự biên soạn)',
+            'license' => 'Internal',
+            'author' => 'DevLex',
+            'tier' => 3,
+            'confidence' => 70,
         ],
     ];
 

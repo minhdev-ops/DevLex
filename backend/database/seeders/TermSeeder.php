@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Term;
 use App\Models\TermAlias;
+use App\Services\Glossary\SourceRegistry;
 use Illuminate\Database\Seeder;
 
 class TermSeeder extends Seeder
@@ -39,11 +40,13 @@ class TermSeeder extends Seeder
 
         $editorial = fn (string $component = 'tier_1') => [
             'component' => $component,
-            'source' => 'DevLex Editorial (tự biên soạn)',
-            'author' => 'DevLex',
-            'license' => 'Internal',
+            'source' => SourceRegistry::label('editorial'),
+            'author' => SourceRegistry::author('editorial'),
+            'license' => SourceRegistry::license('editorial'),
             'author_link' => '',
             'modification_status' => '',
+            'authority_tier' => SourceRegistry::tier('editorial'),
+            'confidence' => SourceRegistry::confidence('editorial'),
         ];
 
         $terms = [

@@ -17,12 +17,14 @@ return new class extends Migration
             $table->text('tier_2_detailed_explanation')->nullable();
             $table->text('tier_2_metaphor_analogy')->nullable();
             $table->string('tier_2_diagram_url')->nullable();
-            $table->json('tier_3_category_tags')->default('[]');
+            // JSON mặc định không được MySQL hỗ trợ ở mức DDL; giá trị '[]'
+            // được đảm bảo bởi tầng ứng dụng (Term::toRow/persist).
+            $table->json('tier_3_category_tags');
             $table->string('tier_3_difficulty_level', 20)->default('Beginner');
             $table->json('tier_3_prerequisites')->nullable();
             $table->json('tier_3_related_terms')->nullable();
             $table->string('roadmap_career', 30)->nullable();
-            $table->json('source_attribution')->default('[]');
+            $table->json('source_attribution');
             $table->timestamps();
 
             $table->index('tier_1_acronym');

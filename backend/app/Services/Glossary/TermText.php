@@ -51,6 +51,25 @@ final class TermText
     }
 
     /**
+     * Khóa khái niệm để nối các mục từ trùng tên giữa các nguồn (NIST/MDN/RFC/CNCF
+     * cùng định nghĩa "access control list"). Chỉ dựa trên tên đầy đủ, KHÔNG dựa
+     * viết tắt, vì viết tắt dễ đụng độ ("AC" = access control hay alternating current).
+     * Trả về '' khi tên rỗng hoặc tên chỉ là ký hiệu (|x|, {X}, ⎾x⏋, "a"): sau khi
+     * bỏ ký tự lạ chúng dồn lại thành một chữ cái và sẽ gộp nhầm mục không liên quan.
+     */
+    public static function conceptKey(string $fullName): string
+    {
+        $name = trim($fullName);
+        if ($name === '' || preg_match('/^[\p{L}\p{N} .\'’"\/-]+$/u', $name) !== 1) {
+            return '';
+        }
+
+        $key = mb_strtolower((string) preg_replace('/[^\p{L}\p{N}]+/u', '', $name));
+
+        return mb_strlen($key) < 3 ? '' : mb_substr($key, 0, 64);
+    }
+
+    /**
      * Làm sạch một đoạn Markdown thành văn bản thuần:
      * - {{glossary("X","Y")}} / {{Glossary("X")}} -> Y hoặc X
      * - [text](url) -> text

@@ -246,6 +246,25 @@ MD
         $this->assertSame(100, SourceRegistry::corroborate(98, 5));
     }
 
+    public function test_concept_key_normalizes_name_and_refuses_empty(): void
+    {
+        $this->assertSame('accesscontrollist', TermText::conceptKey('Access Control List'));
+        $this->assertSame('accesscontrollist', TermText::conceptKey(' access-control-list. '));
+        $this->assertNotSame(TermText::conceptKey('access control'), TermText::conceptKey('access control list'));
+        // Tên quá dài vẫn nằm trong cột varchar(64).
+        $this->assertSame(64, mb_strlen(TermText::conceptKey(str_repeat('long ', 40))));
+        // Không có tên => không có khóa, tránh gom sạch những mục trống tên vào một nhúm.
+        $this->assertSame('', TermText::conceptKey(''));
+        $this->assertSame('', TermText::conceptKey('   '));
+        // Tên toàn ký hiệu toán học hoặc quá ngắn: chuẩn hóa sẽ dồn về 1-2 chữ cái
+        // và gộp nhầm (|x| với {X} với ⎾x⏋), nên chủ trương không gán khóa.
+        $this->assertSame('', TermText::conceptKey('|x|'));
+        $this->assertSame('', TermText::conceptKey('{X}'));
+        $this->assertSame('', TermText::conceptKey('⎾x⏋'));
+        $this->assertSame('', TermText::conceptKey('a'));
+        $this->assertSame('', TermText::conceptKey('C++'));
+    }
+
     public function test_clean_strips_bold_links_and_headings(): void
     {
         $raw = "## Heading\nAn **API** is [a contract](/en-US/docs/API) with {{glossary(\"HTTP\",\"methods\")}}.";

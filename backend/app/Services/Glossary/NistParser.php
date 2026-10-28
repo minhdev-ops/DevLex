@@ -35,11 +35,36 @@ class NistParser
 
         $meta = SourceRegistry::get('nist');
 
+        // NIST cross-liệt kê synonym/acronym giữa các trang, nên không thể blindly
+        // lấy abbrev[0] làm acronym. Phân nhánh theo bản chất <title> (đáng tin,
+        // khớp slug):
+        //  - title là một CỤM TỪ (có dấu cách) -> đó là tên đầy đủ; acronym lấy từ
+        //    synonym viết hoa ngắn nếu có (VD: "Zero Trust Architecture" -> ZTA).
+        //  - title bản thân là acronym viết hoa ngắn -> acronym = title; tên đầy đủ
+        //    là synonym dạng cụm dài hơn (VD: "2FA" -> Two-Factor Authentication).
+        //  - còn lại (từ thường) -> acronym = full = title, bỏ synonym lạ để tránh
+        //    gán nhầm (VD: "abstraction" không nhận "2FA").
+        $isPhrase = str_contains($title, ' ');
+        $isAcronymish = ! $isPhrase
+            && mb_strlen($title) <= 6
+            && preg_match('/^[A-Z0-9\/]+$/', $title) === 1;
+
+        if ($isPhrase) {
+            $fullName = $title;
+            $acronym = $this->pickAcronym($title, $abbrev) ?: $title;
+        } elseif ($isAcronymish) {
+            $acronym = $title;
+            $fullName = $this->pickExpansion($title, $abbrev) ?: $title;
+        } else {
+            $acronym = $title;
+            $fullName = $title;
+        }
+
         return new ParsedTerm(
             id: 'nist_'.TermText::slugify($slug, 40),
             source: 'nist',
-            acronym: ($abbrev[0] ?? '') ?: $title,
-            fullNameEn: $title,
+            acronym: $acronym,
+            fullNameEn: $fullName,
             shortDefinition: $this->limitWords($definition, 60),
             detailedExplanation: $this->limitWords($definition, 180),
             categoryTags: array_values(array_unique(['Security', ...$this->formatTags($seg)])),
@@ -74,6 +99,39 @@ class NistParser
             fn ($s) => trim(preg_replace('~\s+~', ' ', html_entity_decode(strip_tags($s)))),
             $m[1] ?? []
         )));
+    }
+
+    /**
+     * Chọn dạng mở rộng (tên đầy đủ) từ danh sách synonym của NIST: ưu tiên chuỗi
+     * dài hơn title và có dấu cách — tức là cách viết đầy đủ, không phải acronym
+     * khác bị cross-list. Trả về '' nếu không có ứng viên hợp lệ.
+     */
+    private function pickExpansion(string $title, array $abbrevs): string
+    {
+        $candidates = array_values(array_filter(
+            $abbrevs,
+            fn ($a) => $a !== '' && $a !== $title && str_contains($a, ' ') && mb_strlen($a) > mb_strlen($title),
+        ));
+        usort($candidates, fn ($a, $b) => mb_strlen($b) <=> mb_strlen($a));
+
+        return $candidates[0] ?? '';
+    }
+
+    /**
+     * Với title là một cụm từ, chọn acronym viết hoa ngắn từ danh sách synonym
+     * (^[A-Z0-9/]+$, độ dài <= 6) — tức chữ tắt của chính thuật ngữ đó.
+     */
+    private function pickAcronym(string $title, array $abbrevs): string
+    {
+        foreach ($abbrevs as $a) {
+            if ($a !== '' && $a !== $title
+                && mb_strlen($a) <= 6
+                && preg_match('/^[A-Z0-9\/]+$/', $a) === 1) {
+                return $a;
+            }
+        }
+
+        return '';
     }
 
     /** Danh sách tài liệu NIST được trích làm nguồn (VD: "NIST SP 800-207"). */

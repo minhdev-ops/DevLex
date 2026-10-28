@@ -42,11 +42,10 @@ class TermController extends Controller
         $results = $candidates
             ->map(function (Term $term) use ($normalized, $exactAlias) {
                 $term->similarity = $this->similarity($normalized, $term);
-                $match = $exactAlias?->where('term_id', $term->id);
-                if ($match) {
+                if ($exactAlias && $exactAlias->term_id === $term->id) {
                     $term->matched_alias = [
-                        'alias' => $match->alias,
-                        'naming_rule_note' => $match->naming_rule_note,
+                        'alias' => $exactAlias->alias,
+                        'naming_rule_note' => $exactAlias->naming_rule_note,
                     ];
                 }
 

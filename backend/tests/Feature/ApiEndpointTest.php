@@ -62,6 +62,23 @@ class ApiEndpointTest extends TestCase
         $this->getJson('/api/v1/terms/search')->assertStatus(422);
     }
 
+    public function test_search_matching_an_alias_does_not_crash(): void
+    {
+        // Regression: query trùng alias từng gây 500 ("Property [alias] does not
+        // exist on the Eloquent builder instance") khi gắn matched_alias.
+        $term = $this->term(['id' => 'nist_2fa', 'tier_1_acronym' => 'Two-Factor Authentication']);
+        \App\Models\TermAlias::create([
+            'term_id' => $term->id,
+            'alias' => '2FA',
+            'naming_rule_note' => 'Viết tắt phổ biến',
+        ]);
+
+        $res = $this->getJson('/api/v1/terms/search?q=2FA');
+        $res->assertOk();
+        $ids = array_column($res->json('data'), 'id');
+        $this->assertContains('nist_2fa', $ids);
+    }
+
     public function test_show_returns_three_tier_shape(): void
     {
         $this->term();

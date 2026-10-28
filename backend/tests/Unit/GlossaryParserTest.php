@@ -143,6 +143,37 @@ MD
         $this->assertSame(1, $row['source_attribution'][0]['authority_tier']);
     }
 
+    public function test_nist_keeps_acronymish_title_and_picks_real_expansion(): void
+    {
+        // Regression: NIST cross-liệt kê synonym giữa các trang. Trước đây acronym
+        // bị gán nhầm từ abbrev[0] (vd "2FA" nhận "abstraction").
+        $seg = static function (string $title, string $abbrLinks, string $def) {
+            return '<title>'.$title.' - Glossary | CSRC</title><main>'
+                .'<div class="glossary-definition"><div>'
+                .'<strong>Abbreviations / Acronyms / Synonyms:</strong><p class="indent-1">'.$abbrLinks.'</p>'
+                .'<strong>Definitions:</strong> &nbsp;&nbsp; '.$def.' Sources: NIST SP 800-53</div></div>'
+                .'<div class="col-lg-4">sidebar</div></main>';
+        };
+
+        $twoFa = (new NistParser)->parse('2fa', $seg(
+            '2FA',
+            '<a id="term-abbr-link-0" href="/glossary/term/abstraction">abstraction</a>'
+            .'<a id="term-abbr-link-1" href="/glossary/term/tfa">Two-Factor Authentication</a>',
+            'Authentication using two or more factors.'
+        ));
+        $this->assertSame('2FA', $twoFa->acronym);
+        $this->assertSame('Two-Factor Authentication', $twoFa->fullNameEn);
+
+        $abstraction = (new NistParser)->parse('abstraction', $seg(
+            'abstraction',
+            '<a id="term-abbr-link-0" href="/glossary/term/2fa">2FA</a>',
+            'View of an object that hides irrelevant detail.'
+        ));
+        // Title là từ thường -> không nhận synonym "2FA" làm acronym.
+        $this->assertSame('abstraction', $abstraction->acronym);
+        $this->assertSame('abstraction', $abstraction->fullNameEn);
+    }
+
     public function test_nist_skips_page_without_definition_block(): void
     {
         $this->assertNull((new NistParser)->parse('missing', '<title>x - Glossary | CSRC</title><main>nope</main>'));

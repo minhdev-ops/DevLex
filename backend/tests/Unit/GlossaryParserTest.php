@@ -4,6 +4,8 @@ namespace Tests\Unit;
 
 use App\Services\Glossary\CncfParser;
 use App\Services\Glossary\MdnParser;
+use App\Services\Glossary\NistParser;
+use App\Services\Glossary\SourceRegistry;
 use App\Services\Glossary\TermText;
 use PHPUnit\Framework\TestCase;
 
@@ -110,6 +112,52 @@ MD
         }
         $this->assertSame('tier_1', $row['source_attribution'][0]['component']);
         $this->assertSame('CNCF Cloud Native Glossary', $row['source_attribution'][0]['source']);
+    }
+
+    public function test_nist_parses_term_page_and_tags_authority(): void
+    {
+        $html = '<title>Zero Trust Architecture - Glossary | CSRC</title><main>'
+            .'<div class="glossary-definition"><div>'
+            .'<strong>Abbreviations / Acronyms / Synonyms:</strong><p class="indent-1">'
+            .'<a href="/glossary/term/zta" id="term-abbr-link-0">ZTA</a>'
+            .'<a href="/glossary/term/zero-trust" id="term-abbr-link-1">zero trust</a>'
+            .'<p>NIST SP 800-207 NIST IR 8432</p></div>'
+            .'<strong>Definitions:</strong> &nbsp;&nbsp; An enterprise’s cybersecurity plan that '
+            .'utilizes zero trust concepts and encompasses component relationships, workflow planning, '
+            . 'and access policies. Sources: NIST SP 800-207</div></div>'
+            .'<div class="col-lg-4">sidebar</div></main>';
+
+        $term = (new NistParser)->parse('zero_trust_architecture', $html);
+        $this->assertNotNull($term);
+        $this->assertSame('nist_zero-trust-architecture', $term->id);
+        $this->assertSame('Zero Trust Architecture', $term->fullNameEn);
+        $this->assertSame('ZTA', $term->acronym);
+        $this->assertStringContainsString('cybersecurity plan', $term->shortDefinition);
+        $this->assertSame('Public Domain', $term->license);
+        $this->assertSame(1, $term->authorityTier);
+        $this->assertSame(95, $term->confidence);
+        $this->assertContains('NIST SP 800-207', $term->citedBy);
+        $this->assertContains('Security', $term->categoryTags);
+
+        $row = $term->toTermRow();
+        $this->assertSame(1, $row['source_attribution'][0]['authority_tier']);
+    }
+
+    public function test_nist_skips_page_without_definition_block(): void
+    {
+        $this->assertNull((new NistParser)->parse('missing', '<title>x - Glossary | CSRC</title><main>nope</main>'));
+    }
+
+    public function test_source_registry_tiers_and_corroboration(): void
+    {
+        $this->assertSame(1, SourceRegistry::tier('nist'));
+        $this->assertSame(2, SourceRegistry::tier('cncf'));
+        $this->assertSame('Public Domain', SourceRegistry::license('nist'));
+        $this->assertSame(3, SourceRegistry::tier('unknown'));
+        // một nguồn: giữ nguyên; ba nguồn: +4 mỗi nguồn thừa, trần 100
+        $this->assertSame(95, SourceRegistry::corroborate(95, 1));
+        $this->assertSame(99, SourceRegistry::corroborate(95, 2));
+        $this->assertSame(100, SourceRegistry::corroborate(98, 5));
     }
 
     public function test_clean_strips_bold_links_and_headings(): void

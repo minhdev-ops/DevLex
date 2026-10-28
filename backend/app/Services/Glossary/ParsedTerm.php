@@ -24,10 +24,16 @@ class ParsedTerm
         public ?string $license = null,
         public ?string $author = null,
         public ?string $modificationStatus = null,
+        public ?int $authorityTier = null,
+        public ?int $confidence = null,
+        /** @var string[] tài liệu chuẩn được trích làm nguồn (VD: "NIST SP 800-207") */
+        public array $citedBy = [],
     ) {}
 
     /**
      * Chuyển sang dòng phù hợp cột của bảng `terms` (idempotent để upsert).
+     * Độ uy tín nguồn (tier/confidence/cited_by) nhúng trong JSON source_attribution
+     * nên không cần thêm cột DB.
      */
     public function toTermRow(): array
     {
@@ -40,7 +46,10 @@ class ParsedTerm
                 'license' => $this->license,
                 'author_link' => $this->authorLink,
                 'modification_status' => $this->modificationStatus,
-            ], fn ($v) => $v !== null && $v !== '');
+                'authority_tier' => $this->authorityTier,
+                'confidence' => $this->confidence,
+                'cited_by' => $this->citedBy ?: null,
+            ], fn ($v) => $v !== null && $v !== '' && $v !== []);
         }
 
         return [
@@ -61,11 +70,6 @@ class ParsedTerm
 
     public static function sourceLabel(string $source): string
     {
-        return match ($source) {
-            'mdn' => 'MDN Web Docs',
-            'cncf' => 'CNCF Cloud Native Glossary',
-            'nist' => 'NIST CSRC Glossary',
-            default => $source,
-        };
+        return SourceRegistry::label($source);
     }
 }

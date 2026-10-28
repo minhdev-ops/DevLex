@@ -6,6 +6,8 @@ class Attribution {
     required this.license,
     required this.authorLink,
     required this.modificationStatus,
+    this.authorityTier,
+    this.confidence,
   });
 
   final String component;
@@ -15,13 +17,24 @@ class Attribution {
   final String authorLink;
   final String modificationStatus;
 
+  /// Bậc thẩm quyền nguồn: 1 = tổ chức chuẩn hóa/chính phủ (NIST, MDN), 2 = liên minh CN.
+  final int? authorityTier;
+
+  /// Độ tin cậy 0–100 sau chấm điểm đa nguồn (corroboration).
+  final int? confidence;
+
+  bool get isVerified => authorityTier == 1;
+
   factory Attribution.fromJson(Map<String, dynamic> json) => Attribution(
         component: json['component'] as String? ?? '',
         source: json['source'] as String? ?? '',
         author: json['author'] as String? ?? '',
         license: json['license'] as String? ?? '',
-        authorLink: json['authorLink'] as String? ?? '',
-        modificationStatus: json['modificationStatus'] as String? ?? '',
+        authorLink: json['authorLink'] as String? ?? json['author_link'] as String? ?? '',
+        modificationStatus:
+            json['modificationStatus'] as String? ?? json['modification_status'] as String? ?? '',
+        authorityTier: json['authorityTier'] as int? ?? json['authority_tier'] as int?,
+        confidence: json['confidence'] as int?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -31,6 +44,8 @@ class Attribution {
         'license': license,
         'authorLink': authorLink,
         'modificationStatus': modificationStatus,
+        if (authorityTier != null) 'authority_tier': authorityTier,
+        if (confidence != null) 'confidence': confidence,
       };
 }
 

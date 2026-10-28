@@ -49,6 +49,8 @@ class MdnParser
             license: self::LICENSE,
             author: self::AUTHOR,
             modificationStatus: 'Chờ dịch sang tiếng Việt (Human-in-the-loop)',
+            authorityTier: SourceRegistry::tier('mdn'),
+            confidence: SourceRegistry::confidence('mdn'),
         );
     }
 

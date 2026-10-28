@@ -58,6 +58,8 @@ class CncfParser
             license: self::LICENSE,
             author: self::AUTHOR,
             modificationStatus: 'Chờ dịch sang tiếng Việt (Human-in-the-loop)',
+            authorityTier: SourceRegistry::tier('cncf'),
+            confidence: SourceRegistry::confidence('cncf'),
         );
     }
 

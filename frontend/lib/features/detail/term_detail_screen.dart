@@ -20,8 +20,30 @@ class TermDetailScreen extends StatelessWidget {
       );
     }
 
+    final maxConfidence = term.attribution
+        .map((a) => a.confidence ?? 0)
+        .fold<int>(0, (prev, el) => el > prev ? el : prev);
+    final trusted = term.attribution.any((a) => a.isVerified) || maxConfidence >= 90;
+
     return Scaffold(
-      appBar: AppBar(title: Text(term.acronym)),
+      appBar: AppBar(
+        title: Text(term.acronym),
+        actions: [
+          if (trusted)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Chip(
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                backgroundColor: AppTheme.tier1.withValues(alpha: 0.12),
+                label: Text(
+                  maxConfidence > 0 ? '✓ Nguồn uy tín · $maxConfidence' : '✓ Nguồn uy tín',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [

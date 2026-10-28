@@ -27,3 +27,6 @@ backend/bootstrap/cache/*.php
 frontend/.dart_tool/
 frontend/.flutter-plugins*
 frontend/build/
+
+# Archived pre-restructure Flutter scaffold (old flat layout)
+frontend_legacy/

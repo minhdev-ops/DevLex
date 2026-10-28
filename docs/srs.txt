@@ -1,0 +1,290 @@
+ĐẶC TẢ YÊU CẦU PHẦN MỀM (SRS) HỆ THỐNG MOBILE APP IT GLOSSARY & ROADMAP (CHUẨN IEEE 830)
+1. TỔNG QUAN & PHẠM VI DỰ ÁN (PROJECT OVERVIEW & SCOPE)
+Sự gia tăng nhanh chóng của các thuật ngữ chuyên ngành và từ viết tắt trong ngành Công nghệ Thông tin (IT) tạo ra một rào cản ngôn ngữ kỹ thuật đáng kể đối với người mới bắt đầu, bao gồm sinh viên, lập trình viên tập sự và nhân sự chuyển ngành. Việc tra cứu thụ động trên các công cụ từ điển tĩnh truyền thống thường dẫn đến trải nghiệm rời rạc, làm người học khó nắm bắt được bức tranh tổng thể và ngữ cảnh ứng dụng thực tế của phần mềm. Nhằm giải quyết triệt để rào cản này, việc chuyển dịch chiến lược từ một ứng dụng tra cứu từ điển tĩnh thành một hệ sinh thái khai phá tri thức IT đóng vai trò nền tảng. Hệ sinh thái này giúp kết nối các khái niệm kỹ thuật thô thành các lộ trình học tập trực quan, gia tăng tỷ lệ giữ chân người dùng và nâng cao giá trị giáo dục lẫn thương mại của sản phẩm.
+Hệ thống được thiết kế nhằm mục tiêu giải mã chính xác các thuật ngữ kỹ thuật, đồng thời định hướng lộ trình học tập cá nhân hóa thông qua việc kết hợp các nguồn dữ liệu mở chuẩn hóa quốc tế với kiến trúc xử lý dữ liệu hiện đại. Nhờ đó, người học không chỉ hiểu ý nghĩa bề nổi của từ viết tắt mà còn thấu hiểu vị trí vận hành của thuật ngữ đó trong quy trình phát triển phần mềm thực tế.
+Mô hình khai phá tri thức của ứng dụng được tổ chức theo cấu trúc 3 tầng lũy tiến bao gồm:
+Tầng 1: Định nghĩa Cơ bản (Tier 1 - Basic Definition):
+Hệ thống tự động giải mã các ký tự viết tắt (Acronym).
+Hiển thị tên tiếng Anh đầy đủ (Full Name in English) và nghĩa tiếng Việt tương đương.
+Cung cấp định nghĩa tóm tắt cốt lõi dưới 50 từ, giúp người dùng lập tức nắm bắt khái niệm khi đọc tài liệu hoặc giao tiếp nhanh.
+Tầng 2: Bối cảnh & Trực quan hóa (Tier 2 - Context & Visualization):
+Trình bày ngữ cảnh vận hành thực tế của thuật ngữ trong quy trình phát triển phần mềm.
+Minh họa bằng sơ đồ luồng hoạt động đơn giản hóa.
+Áp dụng các ẩn dụ so sánh với đời sống thực tế (ví dụ: mô tả cơ chế API hoạt động tương tự như một người phục vụ trong nhà hàng, tiếp nhận yêu cầu từ khách hàng và truyền tới nhà bếp, giúp người học dễ hình dung luồng truyền nhận dữ liệu giữa Client và Server).
+Tầng 3: Sơ đồ Mối quan hệ & Lộ trình Học tập (Tier 3 - Relationship Map & Roadmap):
+Kết nối khái niệm hiện tại với các thuật ngữ liên quan trực tiếp và gián tiếp dựa trên cây kiến thức.
+Đề xuất các bước học tiếp theo (ví dụ: từ thuật ngữ gốc API, hệ thống mở rộng và dẫn dắt người dùng khám phá RESTful API, định dạng dữ liệu JSON, các mã trạng thái HTTP status codes, cùng cơ chế xác thực như OAuth2 hoặc JWT).
+Dưới đây là bảng phân định ranh giới phạm vi phát triển sản phẩm (In-Scope và Out-of-Scope):
+Hạng mục thuộc Phạm vi Phát triển (In-Scope),Hạng mục Nằm ngoài Phạm vi (Out-of-Scope)
+Phát triển ứng dụng di động đa nền tảng (Mobile App) hỗ trợ tra cứu và hiển thị tri thức 3 tầng.,Xây dựng hệ thống biên dịch mã nguồn hoặc trình thực thi mã (Code Compiler/Runner) trực tiếp trong app.
+Xây dựng hệ thống Backend API và Cơ sở dữ liệu hợp nhất PostgreSQL.,Tự xuất bản nội dung độc quyền từ roadmap.sh mà không qua biên soạn lại (vi phạm bản quyền).
+Triển khai Cơ sở dữ liệu di động cục bộ SQLite phục vụ truy vấn Offline-first.,Cung cấp các khóa học video trả phí hoặc hệ thống chứng chỉ trực tuyến chuyên sâu.
+Tích hợp thuật toán tìm kiếm mờ (Fuzzy Search) và tính năng Giải mã Ngữ cảnh (Context Decoder).,Tích hợp hệ thống thanh toán trực tiếp qua cổng ngân hàng nội địa (chỉ sử dụng cơ chế của Google Play Console nếu có).
+Tích hợp các mô-đun Ôn tập (Quiz & Flashcard Spaced Repetition) và Cổng đóng góp cộng đồng.,Xây dựng mạng xã hội nhắn tin tức thời (Instant Messaging) giữa các người dùng.
+Tự động hóa mô-đun hiển thị ghi công bản quyền dữ liệu nguồn (Attribution Module).,
+Sau khi đã xác định rõ phạm vi định hướng và ranh giới phát triển của sản phẩm, phần tiếp theo sẽ đặc tả chi tiết các yêu cầu chức năng hệ thống theo chuẩn IEEE 830.
+2. YÊU CẦU CHỨC NĂNG CHI TIẾT THEO PHÂN HỆ (DETAILED FUNCTIONAL REQUIREMENTS)
+Nội dung phần này đặc tả các yêu cầu chức năng của hệ thống theo chuẩn IEEE 830, nhằm đảm bảo trải nghiệm tương tác mượt mà, tối ưu hóa tốc độ tìm kiếm và giảm thiểu cảm giác quá tải thông tin cho người dùng mới bắt đầu.
+2.1 Phân hệ Glossary Tra cứu & Fuzzy Search (K8s -> Kubernetes Mapping)
+Phân hệ xử lý tra cứu phải tích hợp thuật toán tìm kiếm mờ (Fuzzy Search) có khả năng xử lý các trường hợp gõ sai chính tả, gõ thiếu ký tự hoặc nhập các biến thể từ viết tắt. Hệ thống phải duy trì một bảng ánh xạ các từ viết tắt đặc thù trong ngành IT.
+Quy tắc xử lý đặc thù:  Khi người dùng nhập từ khóa "K8s", hệ thống tìm kiếm mờ và bảng ánh xạ phải tự động nhận diện và trả về kết quả chuẩn xác là "Kubernetes". Đồng thời, ứng dụng phải hiển thị phần giải thích quy ước đặt tên kỹ thuật: chữ cái 'K' đầu tiên, chữ cái 's' cuối cùng, và số '8' đại diện cho 8 ký tự nằm ở giữa ("ubernete").
+Bảng mô tả yêu cầu chức năng cho phân hệ Tra cứu theo chuẩn IEEE 830:
+Mã YC,Tên chức năng,Mô tả chi tiết,Điều kiện tiên quyết,Phản hồi hệ thống,Độ ưu tiên
+FR-GLOS-01,Tra cứu tức thì (Instant Search),Người dùng nhập từ khóa vào thanh tìm kiếm; hệ thống truy vấn dữ liệu từ SQLite cục bộ.,Ứng dụng đã khởi động và tải CSDL SQLite.,Hiển thị danh sách gợi ý thuật ngữ theo thời gian thực (real-time) với độ trễ < 50ms.,Cao (High)
+FR-GLOS-02,Tìm kiếm mờ (Fuzzy Search),Hệ thống phân tích từ khóa gõ sai chính tả hoặc thiếu ký tự (Levenshtein Distance) để khớp với thuật ngữ trong CSDL.,Người dùng nhập chuỗi ký tự bất kỳ vào ô tìm kiếm.,Trả về danh sách thuật ngữ phù hợp nhất kèm chỉ số độ tương đồng.,Cao (High)
+FR-GLOS-03,Ánh xạ Biến thể & Acronym,"Nhận diện các từ viết tắt dạng số như ""K8s"" để ánh xạ về từ gốc ""Kubernetes"".",Nhập từ khóa dạng chuẩn hoặc dạng viết tắt biến thể.,Trả về bài viết thuật ngữ đầy đủ và hiển thị chú thích quy tắc đặt tên (chữ K + 8 ký tự + s).,Cao (High)
+FR-GLOS-04,Hiển thị Tri thức 3 tầng,"Hiển thị chi tiết thuật ngữ theo cấu trúc: Tầng 1 (Định nghĩa), Tầng 2 (Bối cảnh/Trực quan), và Tầng 3 (Sơ đồ quan hệ).",Người dùng chọn 1 thuật ngữ từ danh sách kết quả.,Giao diện hiển thị đầy đủ thông tin 3 tầng cùng mô-đun ghi công tác giả đa nguồn.,Cao (High)
+2.2 Phân hệ Sơ đồ Lộ trình Tương tác (Interactive Knowledge Map)
+Phân hệ cho phép người dùng khám phá thuật ngữ dạng bản đồ tư duy/cây kiến thức tương tác dựa trên dữ liệu chuẩn hóa, giúp theo dõi lộ trình phát triển kỹ năng từ cơ bản đến nâng cao. Hệ thống đóng gói thuật ngữ theo 4 mục tiêu nghề nghiệp cốt lõi:
+Frontend Developer:  HTML, CSS, DOM, API, JSON, SPA (Single Page Application), SSR (Server-Side Rendering).
+Backend Developer:  REST, CRUD, SQL, NoSQL, ORM, Middleware, JWT.
+DevOps Engineer:  CI/CD, Docker, Container, Kubernetes, IaaS, PaaS.
+Project Communication (Giao tiếp dự án):  Agile, Scrum, Sprint, Pull Request, Code Review, Staging Environment, Hotfix.
+Bảng mô tả yêu cầu chức năng cho phân hệ Sơ đồ Lộ trình Tương tác theo chuẩn IEEE 830:
+Mã YC,Tên chức năng,Mô tả chi tiết,Điều kiện tiên quyết,Phản hồi hệ thống,Độ ưu tiên
+FR-MAP-01,Hiển thị Cây Kiến thức theo Định hướng,"Hệ thống truy vấn CSDL và dựng sơ đồ cây kỹ năng tương tác theo 4 mục tiêu nghề nghiệp (Frontend, Backend, DevOps, Project Comm).",Người dùng chọn một mục tiêu nghề nghiệp cụ thể.,Trình diễn sơ đồ đồ họa nút (nodes) thể hiện các thuật ngữ và thứ tự phụ thuộc kiến thức.,Cao (High)
+FR-MAP-02,Điều hướng & Tương tác Nút,Người dùng chạm vào một nút thuật ngữ trên cây kỹ năng để xem tóm tắt hoặc mở rộng nhánh liên quan.,Sơ đồ cây kỹ năng đang hiển thị trên màn hình.,Hiển thị card xem nhanh Tầng 1 và highlight các thuật ngữ tiên quyết (prerequisites).,Trung bình (Medium)
+FR-MAP-03,Lưu Tiến độ Học tập,"Hệ thống ghi nhận trạng thái ""Đã học / Cần ôn tập"" của từng thuật ngữ trên lộ trình vào SQLite.",Người dùng đánh dấu hoàn thành một thuật ngữ.,Cập nhật tỷ lệ % hoàn thành lộ trình nghề nghiệp trên giao diện người dùng.,Trung bình (Medium)
+2.3 Phân hệ Giải mã Ngữ cảnh (Context Decoder)
+Phân hệ cung cấp giao diện cho phép người dùng dán (paste) một đoạn văn bản kỹ thuật thô hoặc thông tin tuyển dụng (Job Description - JD). Hệ thống sẽ tự động quét toàn bộ văn bản, trích xuất tất cả các từ viết tắt xuất hiện, và hiển thị chú thích nhanh (popover/tooltip) chứa thông tin Tầng 1 mà không làm ngắt quãng trải nghiệm đọc.
+Bảng mô tả yêu cầu chức năng cho phân hệ Giải mã Ngữ cảnh theo chuẩn IEEE 830:
+Mã YC,Tên chức năng,Mô tả chi tiết,Điều kiện tiên quyết,Phản hồi hệ thống,Độ ưu tiên
+FR-DEC-01,Phân tích Văn bản Thô,"Tiếp nhận văn bản thô/JD từ clipboard, thực hiện tách từ (tokenization) và khớp chuỗi với CSDL thuật ngữ.",Văn bản dán vào có độ dài < 10.000 ký tự.,Highlight toàn bộ các từ viết tắt/thuật ngữ được tìm thấy trong đoạn văn.,Cao (High)
+FR-DEC-02,Hiển thị Chú thích Popover,"Khi chạm vào từ được highlight, hệ thống hiển thị popover chứa term_id, acronym, full_name_en, và short_definition.",Đoạn văn bản đã được phân tích thành công.,Mở popover xem nhanh định nghĩa Tầng 1 ngay tại vị trí chạm mà không cần chuyển trang.,Cao (High)
+FR-DEC-03,Điều hướng Chi tiết Tri thức,"Chạm vào nút ""Xem chi tiết"" trên popover để mở bài viết phân tích 3 tầng hoàn chỉnh.",Popover giải mã đang hiển thị.,Chuyển hướng người dùng sang màn hình chi tiết thuật ngữ chuẩn.,Thấp (Low)
+2.4 Phân hệ Quiz & Flashcard (Spaced Repetition System)
+Phân hệ hỗ trợ ghi nhớ thuật ngữ tự nhiên thông qua bài tập trắc nghiệm ngắn và thẻ ghi nhớ (Flashcards). Hệ thống áp dụng thuật toán lặp lại ngắt quãng (Spaced Repetition System - SRS) giúp tối ưu hóa khoảng thời gian ôn tập dựa trên lịch sử tương tác.
+Bảng mô tả yêu cầu chức năng cho phân hệ Quiz & Flashcard theo chuẩn IEEE 830:
+Mã YC,Tên chức năng,Mô tả chi tiết,Điều kiện tiên quyết,Phản hồi hệ thống,Độ ưu tiên
+FR-QUIZ-01,Khởi tạo Bài tập Trắc nghiệm,Tự động tạo bài trắc nghiệm 5-10 câu hỏi dựa trên các thuật ngữ người dùng đã xem hoặc lưu lại.,Dữ liệu người dùng đã lưu trữ tối thiểu 5 thuật ngữ.,Hiển thị câu hỏi trắc nghiệm ghép từ viết tắt với định nghĩa Tầng 1 tương ứng.,Trung bình (Medium)
+FR-QUIZ-02,Ôn tập Flashcard Lặp lại Ngắt quãng,Hiển thị thẻ ghi nhớ (mặt trước: Acronym; mặt sau: Định nghĩa Tầng 1 & Ví dụ Tầng 2) và tính toán chu kỳ lặp lại.,Thuật ngữ đã được thêm vào hàng chờ ôn tập.,"Điều chỉnh khoảng thời gian tái xuất hiện của thẻ (1 ngày, 3 ngày, 7 ngày) dựa trên đánh giá của người dùng.",Trung bình (Medium)
+FR-QUIZ-03,Thống kê Hiệu quả Học tập,Tính toán chỉ số ghi nhớ và thống kê chuỗi ngày ôn tập liên tục (Streak).,Người dùng hoàn thành ít nhất 1 phiên ôn tập.,Hiển thị biểu đồ tiến trình ghi nhớ và điểm thưởng động lực trên Dashboard.,Thấp (Low)
+2.5 Phân hệ Cổng Đóng góp Cộng đồng (Community Contribution)
+Phân hệ cung cấp quy trình cho phép cộng đồng người dùng và kỹ sư gửi đóng góp thuật ngữ mới, biên dịch nội dung sang tiếng Việt hoặc bổ sung các ví dụ thực tế theo mô hình kiểm duyệt mã nguồn mở.
+Bảng mô tả yêu cầu chức năng cho phân hệ Cổng Đóng góp Cộng đồng theo chuẩn IEEE 830:
+Mã YC,Tên chức năng,Mô tả chi tiết,Điều kiện tiên quyết,Phản hồi hệ thống,Độ ưu tiên
+FR-COMM-01,Gửi Đề xuất Nội dung,"Người dùng nhập thông tin đóng góp (Acronym, Tên đầy đủ, Định nghĩa Tầng 1, Ví dụ Tầng 2) qua biểu mẫu trực tuyến.",Người dùng đã đăng nhập tài khoản ứng dụng.,Ghi nhận bản ghi đóng góp và gửi vào Hàng chờ Kiểm duyệt (Moderation Queue) trên Backend.,Trung bình (Medium)
+FR-COMM-02,Kiểm duyệt Đóng góp (Admin),"Chuyên gia kỹ thuật thực hiện review, chỉnh sửa, phê duyệt hoặc từ chối đề xuất đóng góp của cộng đồng.",Tài khoản đăng nhập có quyền Quản trị viên (Admin/Moderator).,Cập nhật trạng thái đề xuất và tự động bổ sung thuật ngữ được duyệt vào CSDL PostgreSQL.,Trung bình (Medium)
+FR-COMM-03,Ghi nhận Đóng góp (Contributor Credit),Tự động hiển thị tên người đóng góp trong phần ghi công bản quyền của thuật ngữ sau khi bài viết được duyệt.,Đề xuất đóng góp đã được Admin phê duyệt.,Cập nhật thông tin contributor_name vào mảng source_attribution của thuật ngữ.,Thấp (Low)
+Hoàn tất các phân hệ chức năng, nội dung tiếp theo sẽ đi sâu vào chiến lược quản lý bản quyền dữ liệu nguồn và tính tuân thủ pháp lý - yếu tố sống còn cho sự vận hành bền vững của hệ thống.
+3. QUẢN LÝ BẢN QUYỀN DỮ LIỆU NGUỒN & PHÁP LÝ (DATA LICENSE MANAGEMENT & LEGAL COMPLIANCE)
+Xây dựng một cơ sở dữ liệu thuật ngữ IT chuyên sâu đòi hỏi phải đảm bảo độ chính xác chuyên môn và tuân thủ nghiêm ngặt các quy định pháp lý về bản quyền. Việc thu thập dữ liệu trái phép hoặc vi phạm bản quyền thương mại có thể dẫn đến rủi ro bị gỡ ứng dụng khỏi Google Play Console và đối mặt với các tranh chấp pháp lý. Giải pháp tối ưu là khai thác các nguồn dữ liệu mở được phát hành chính thức bởi các tổ chức tiêu chuẩn quốc tế và dự án cộng đồng uy tín.
+Bảng tổng hợp đánh giá và so sánh 5 nguồn dữ liệu chính thống:
+Nguồn Dữ Liệu,Lĩnh Vực Chuyên Sâu,Định Dạng Dữ Liệu,Giấy Phép Bản Quyền (License),Ràng Buộc Pháp Lý & Khả Năng Thương Mại Hóa
+NIST CSRC Glossary,"An toàn thông tin, An ninh mạng, Khái niệm Hệ thống","JSON, API",Public Domain (Tài sản chính phủ Mỹ),"Tự do lưu trữ, trích xuất, chỉnh sửa và thương mại hóa mà không có ràng buộc pháp lý."
+MDN Web Docs Glossary,"Lập trình Web, Frontend, Backend, Web APIs, HTML, CSS, JS","Markdown (GitHub), HTML",Creative Commons CC BY-SA 2.5+ (Mã mẫu CC0; mã trước 20/08/2010 theo MIT),"Bắt buộc ghi công Mozilla Contributors, dẫn link bài gốc, mô tả thay đổi (nếu có), và phát hành nội dung cải biên dưới giấy phép CC BY-SA tương đương."
+CNCF Cloud Native Glossary,"Cloud Computing, DevOps, Containers, Kubernetes, Microservices","Markdown (GitHub), PDF",CC BY 4.0 (Mã nguồn thuộc Apache 2.0),"Cho phép chỉnh sửa, tái sử dụng và thương mại hóa hoàn toàn, chỉ cần kèm thông tin ghi công phù hợp."
+Open-source Dictionaries (GitHub),Thuật ngữ Khoa học Máy tính tổng quan,"JSON, CSV, YAML",MIT / Apache 2.0 / CC-BY,Tự do thương mại hóa và tích hợp trực tiếp vào cơ sở dữ liệu hệ thống.
+roadmap.sh  (Kamran Ahmed),Lộ trình phát triển kỹ năng & Nghề nghiệp IT,"Markdown, JSON (GitHub)",Proprietary Non-redistributable (Bản quyền riêng tư),CẤM sao chép hoặc phân phối lại văn bản thô. Chỉ được tham khảo cấu trúc cây kỹ năng để tự biên soạn nội dung nội bộ.
+Quy trình Ghi công Bản quyền Tự động (Attribution Module)
+Để tuân thủ 100% điều khoản của các giấy phép CC BY-SA và CC BY 4.0 mà không gây chồng chéo hoặc mơ hồ về mặt pháp lý giữa các nguồn dữ liệu kết hợp, ứng dụng thiết kế mô-đun hiển thị ghi công tự động dưới dạng cấu trúc mảng ghi công đa nguồn (Multi-source Attribution Array) ở cuối mỗi bài viết thuật ngữ. Cấu trúc mô-đun hiển thị bao gồm:
+Tên thành phần dữ liệu (Component):  Phân định rõ đoạn nội dung thuộc Tầng 1, Tầng 2 hay Tầng 3 lấy từ nguồn nào.
+Tên bài viết gốc & Link:  Chèn siêu liên kết trỏ trực tiếp về bài viết gốc trên MDN, CNCF hoặc NIST.
+Tác giả/Tổ chức:  Hiển thị minh bạch "Mozilla Contributors", "Cloud Native Glossary Authors" hoặc "NIST CSRC".
+Thông tin Giấy phép:  Dẫn liên kết tới điều khoản giấy phép cụ thể (Public Domain, CC BY-SA 2.5, hoặc CC BY 4.0).
+Trạng thái Chỉnh sửa (Modification Notice):  Tự động đánh dấu ghi chú về việc dịch thuật hoặc tóm tắt (ví dụ: "Nội dung gốc đã được dịch sang tiếng Việt và đơn giản hóa bởi Hệ thống IT Glossary").
+Ví dụ văn bản ghi công chuẩn ở cuối bài viết thuật ngữ có dữ liệu kết hợp:
+Thông tin Ghi công Bản quyền (Attribution):
+Định nghĩa cơ bản (Tầng 1):  Dựa trên nội dung từ NIST CSRC Glossary (Public Domain).
+Giải thích chi tiết (Tầng 2):  Dựa trên nội dung từ MDN Web Docs bởi Mozilla Contributors, sử dụng theo giấy phép CC BY-SA 2.5. Nội dung gốc đã được biên dịch sang tiếng Việt và tóm tắt bởi Hệ thống IT Glossary.
+Từ các quy định pháp lý bản quyền khắt khe, hệ thống cần một cấu trúc dữ liệu hợp nhất để lưu trữ chính xác thông tin ghi công cùng toàn bộ các trường dữ liệu thuật ngữ.
+4. KIẾN TRÚC HỆ THỐNG MOBILE-BACKEND & CƠ SỞ DỮ LIỆU HỢP NHẤT (SYSTEM ARCHITECTURE & UNIFIED DATA SCHEMA)
+Kiến trúc kỹ thuật tổng thể của hệ thống được thiết kế theo mô hình Mobile-Backend hiện đại, tối ưu cho khả năng truy cập ngoại tuyến (Offline-first), hiệu năng truy vấn cao và dễ dàng mở rộng dung lượng dữ liệu.
+Đặc tả Stack Công nghệ
+Mobile App:  Sử dụng  Flutter  giúp xây dựng giao diện người dùng đa nền tảng (Android/iOS) mượt mà, tối ưu hóa UX/UI và quản lý trạng thái ứng dụng hiệu quả.
+Backend API Services:  Xây dựng trên nền tảng Laravel , đáp ứng khả năng xử lý bất đồng bộ, tốc độ phản hồi cao và dễ dàng tích hợp các tác vụ thu thập dữ liệu.
+Central Database (Backend):  Sử dụng  PostgreSQL  làm cơ sở dữ liệu trung tâm, lưu trữ quan hệ đa chiều, dữ liệu tổng hợp và hỗ trợ kiểu dữ liệu JSONB linh hoạt.
+Local Client Database (Mobile):  Sử dụng  SQLite  lưu trữ trực tiếp trên thiết bị di động, phục vụ chiến lược truy vấn tức thì không phụ thuộc vào kết nối mạng.
+Cơ sở Dữ liệu Hợp nhất (Unified Schema Design)
+Cấu trúc cơ sở dữ liệu được nhóm và chú thích rõ ràng theo Mô hình Tri thức 3 tầng nhằm đảm bảo sự thống nhất từ khảo sát yêu cầu đến thiết kế kỹ thuật:
+Nhóm Tầng Tri Thức,Trường Dữ Liệu,Kiểu Dữ Liệu,Mô Tả Chức Năng,Ví Dụ Minh Họa
+Định danh Hệ thống,id,String / UUID,Định danh duy nhất của thuật ngữ,"""term_api_001"""
+Tầng 1: Định nghĩa Cơ bản,tier_1_acronym,String,Từ viết tắt nguyên gốc,"""API"""
+,tier_1_full_name_en,String,Tên tiếng Anh đầy đủ,"""Application Programming Interface"""
+,tier_1_full_name_vi,String,Dịch nghĩa tên tiếng Việt,"""Giao diện Lập trình Ứng dụng"""
+,tier_1_short_definition,Text,Định nghĩa ngắn gọn hiển thị ở danh sách (<50 từ),"""Quy tắc cho phép các ứng dụng giao tiếp với nhau."""
+Tầng 2: Bối cảnh & Trực quan,tier_2_detailed_explanation,Markdown,"Bài giải thích chi tiết, ngữ cảnh vận hành thực tế","""API đóng vai trò cầu nối dữ liệu..."""
+,tier_2_metaphor_analogy,Text,Ẩn dụ so sánh đời sống thực tế,"""API hoạt động giống như một người phục vụ nhà hàng..."""
+,tier_2_diagram_url,String,Đường dẫn hình ảnh/sơ đồ luồng hoạt động,"""https://cdn.app.com/diagrams/api_flow.png"""
+Tầng 3: Mối quan hệ & Lộ trình,tier_3_category_tags,ArrayString,Phân loại mảng kiến thức kỹ năng,"""Backend"", ""Web Service"", ""Architecture"""
+,tier_3_difficulty_level,Enum,Mức độ phức tạp đối với người mới,"""Beginner"", ""Intermediate"", ""Advanced"""
+,tier_3_prerequisites,ArrayUUID,Danh sách ID thuật ngữ cần biết trước,"""term_http_002"", ""term_json_005"""
+,tier_3_related_terms,ArrayUUID,Danh sách ID thuật ngữ liên quan để mở rộng,"""term_rest_010"", ""term_graphql_012"""
+Tuân thủ Bản quyền Pháp lý,source_attribution,ArrayObject / JSONB,Mảng thông tin ghi công bản quyền từng thành phần dữ liệu,"{""component"": ""tier_1"", ""source"": ""NIST CSRC"", ""license"": ""Public Domain""}, {""component"": ""tier_2"", ""source"": ""MDN Web Docs"", ""license"": ""CC BY-SA 2.5"", ""author_link"": ""https://..."", ""modification_status"": ""Translated to VI""}"
+Ghi chú Kỹ thuật về Tương thích CSDL Client (SQLite Implementation Note):
+Do PostgreSQL hỗ trợ các kiểu dữ liệu mảng nguyên sinh (ArrayString, ArrayUUID) và JSONB, trong khi SQLite trên ứng dụng di động không hỗ trợ kiểu dữ liệu mảng trực tiếp, hệ thống triển khai chiến lược lưu trữ dữ liệu tại Client như sau:
+Chuỗi hóa JSON (JSON Serialization):  Các trường mảng như tier_3_category_tags, tier_3_prerequisites, tier_3_related_terms và source_attribution sẽ được mã hóa thành chuỗi văn bản JSON (TEXT string) khi lưu vào tệp SQLite cục bộ.
+Bảng liên kết chỉ mục cục bộ (Localized Junction Mapping Tables):  Để phục vụ truy vấn tìm kiếm mờ và lấy cây phụ thuộc tức thì với hiệu năng < 50ms, SQLite thiết lập các bảng liên kết phụ như local_term_relationships (parent_id, child_id, relation_type) có đánh chỉ mục (INDEX) trên thiết bị di động.
+Đường ống Xử lý Dữ liệu Tự động (Data Pipeline)
+Đường ống xử lý dữ liệu vận hành qua 3 giai đoạn tự động hóa:
+Thu thập Tự động:  Hệ thống chạy tác vụ định kỳ tự động tải tập dữ liệu JSON từ NIST CSRC, đồng thời lắng nghe Webhooks/sự kiện thay đổi từ kho lưu trữ GitHub của CNCF Glossary và MDN Web Docs.
+Chuẩn hóa Schema & Ngữ cảnh:  Chuyển đổi dữ liệu thô về Sơ đồ dữ liệu hợp nhất 3 tầng. Khi một thuật ngữ có nhiều định nghĩa theo các ngữ cảnh khác nhau (ví dụ: NIST định nghĩa theo An ninh mạng, MDN định nghĩa theo Web API), hệ thống lưu trữ phân tách thành các mục ngữ cảnh kèm liên kết gốc.
+AI Translate/Summarize & Kiểm duyệt (Human-in-the-loop):  Áp dụng mô hình AI dịch thuật ban đầu và tóm tắt định nghĩa sang văn phong tiếng Việt dễ hiểu. Sau đó, đội ngũ chuyên gia kỹ thuật thực hiện kiểm duyệt (Human-in-the-loop) để đảm bảo độ chuẩn xác trước khi phát hành.
+Tiếp theo, tài liệu sẽ đặc tả quy cách giao tiếp API và cơ chế đồng bộ hóa Offline-first giữa PostgreSQL và SQLite.
+5. ĐẶC TẢ API SPEC DETAILED & ĐỒNG BỘ DỮ LIỆU OFFLINE-FIRST (API SPECIFICATION & OFFLINE-FIRST SYNC)
+Kiến trúc Offline-first đóng vai trò chiến lược đối với ứng dụng tra cứu di động, đảm bảo người dùng có thể truy cập tri thức tức thì ngay cả khi không có kết nối Internet hoặc đang ở trong môi trường mạng chập chờn.
+Chi tiết API Specification (RESTful API)
+1. Tra cứu thuật ngữ (Hỗ trợ Fuzzy Search)
+Endpoint:  GET /api/v1/terms/search?q={keyword}&fuzzy=true
+Response (200 OK):
+{
+  "status": "success",
+  "data": [
+    {
+      "id": "term_k8s_001",
+      "tier_1": {
+        "acronym": "K8s",
+        "full_name_en": "Kubernetes",
+        "full_name_vi": "Hệ thống điều phối Container Kubernetes",
+        "short_definition": "Nền tảng mã nguồn mở tự động hóa việc triển khai, mở rộng và quản lý ứng dụng container."
+      },
+      "tier_3": {
+        "category_tags": ["DevOps", "Cloud Native"],
+        "difficulty_level": "Intermediate"
+      }
+    }
+  ]
+}
+
+
+2. Lấy thông tin chi tiết 3 tầng tri thức
+Endpoint:  GET /api/v1/terms/{id}
+Response (200 OK):
+{
+  "status": "success",
+  "data": {
+    "id": "term_api_001",
+    "tier_1": {
+      "acronym": "API",
+      "full_name_en": "Application Programming Interface",
+      "full_name_vi": "Giao diện Lập trình Ứng dụng",
+      "short_definition": "Quy tắc cho phép các ứng dụng phần mềm giao tiếp và truyền nhận dữ liệu với nhau."
+    },
+    "tier_2": {
+      "detailed_explanation": "### Ngữ cảnh vận hành\nAPI đóng vai trò cầu nối giữa ứng dụng Client và Server...",
+      "metaphor_analogy": "API hoạt động giống như một người phục vụ nhà hàng: tiếp nhận yêu cầu từ khách hàng, truyền tới nhà bếp và mang kết quả quay trở lại.",
+      "diagram_url": "https://cdn.app.com/diagrams/api_flow.png"
+    },
+    "tier_3": {
+      "category_tags": ["Backend", "Web Service", "Architecture"],
+      "difficulty_level": "Beginner",
+      "prerequisites": ["term_http_002"],
+      "related_terms": ["term_rest_010", "term_json_005", "term_jwt_008"]
+    },
+    "source_attribution": [
+      {
+        "component": "tier_1",
+        "source": "NIST CSRC Glossary",
+        "license": "Public Domain",
+        "author_link": "https://csrc.nist.gov/glossary/term/api"
+      },
+      {
+        "component": "tier_2",
+        "source": "MDN Web Docs",
+        "license": "CC BY-SA 2.5",
+        "author_link": "https://developer.mozilla.org/en-US/docs/Glossary/API",
+        "modification_status": "Dịch sang tiếng Việt và bổ sung ẩn dụ minh họa"
+      }
+    ]
+  }
+}
+
+
+3. Trích xuất giải mã ngữ cảnh văn bản thô (Tối ưu chống rủi ro N+1 Query)
+Endpoint:  POST /api/v1/decoder/extract
+Request Body:
+{
+  "raw_text": "Cần tuyển vị trí Backend Dev hiểu biết về REST API, JWT và triển khai trên K8s."
+}
+
+
+Response (200 OK):
+{
+  "status": "success",
+  "extracted_terms": [
+    {
+      "term_id": "term_rest_010",
+      "acronym": "REST",
+      "full_name_en": "Representational State Transfer",
+      "short_definition": "Kiến trúc thiết kế API sử dụng các phương thức HTTP tiêu chuẩn.",
+      "position": {"start": 31, "end": 35}
+    },
+    {
+      "term_id": "term_api_001",
+      "acronym": "API",
+      "full_name_en": "Application Programming Interface",
+      "short_definition": "Quy tắc cho phép các ứng dụng giao tiếp với nhau.",
+      "position": {"start": 36, "end": 39}
+    },
+    {
+      "term_id": "term_jwt_008",
+      "acronym": "JWT",
+      "full_name_en": "JSON Web Token",
+      "short_definition": "Chuẩn mở định dạng mã hóa an toàn dùng cho xác thực người dùng.",
+      "position": {"start": 41, "end": 44}
+    },
+    {
+      "term_id": "term_k8s_001",
+      "acronym": "K8s",
+      "full_name_en": "Kubernetes",
+      "short_definition": "Nền tảng tự động hóa việc triển khai và quản lý container.",
+      "position": {"start": 67, "end": 70}
+    }
+  ]
+}
+
+
+4. Đồng bộ dữ liệu chênh lệch (Delta Sync)
+Endpoint:  GET /api/v1/sync/delta?last_pulled_at={timestamp}
+Response (200 OK):
+{
+  "status": "success",
+  "sync_timestamp": 1700000000,
+  "changes": {
+    "updated": [ /* Danh sách các bản ghi thuật ngữ mới hoặc có chỉnh sửa */ ],
+    "deleted_ids": [ /* Danh sách ID thuật ngữ bị xóa khỏi hệ thống */ ]
+  }
+}
+
+
+Cơ chế Đồng bộ Dữ liệu Offline-First (PostgreSQL <-> SQLite)
+Đồng bộ hóa chênh lệch (Delta Sync):  Ứng dụng di động lưu giữ mốc thời gian đồng bộ cuối cùng (last_pulled_at). Khi có kết nối mạng, app gửi request tới endpoint /sync/delta. Backend truy vấn PostgreSQL tìm các bản ghi có trường updated_at lớn hơn last_pulled_at và trả về danh sách thay đổi để SQLite cập nhật, giảm thiểu tối đa dung lượng truyền tải qua mạng.
+Đóng gói Cơ sở dữ liệu SQLite ban đầu (Pre-packaged DB):  Tệp cơ sở dữ liệu SQLite chứa sẵn 1.000+ thuật ngữ cốt lõi được đóng gói trực tiếp vào bộ cài đặt APK/AAB. Nhờ đó, người dùng ngay sau khi tải app có thể tra cứu tức thì mà không cần chờ kết nối mạng hay tải dữ liệu lần đầu.
+Hoàn tất giải pháp mạng và kiến trúc đồng bộ, phần tiếp theo quy định các tiêu chuẩn phi chức năng cùng danh mục tuân thủ chính sách kiểm duyệt của Google Play Console.
+6. YÊU CẦU PHI CHỨC NĂNG & CHUẨN HÓA GOOGLE PLAY CONSOLE (NON-FUNCTIONAL REQUIREMENTS & CH PLAY COMPLIANCE)
+Các yếu tố phi chức năng đóng vai trò quyết định đến tỷ lệ giữ chân người dùng và là điều kiện bắt buộc để ứng dụng vượt qua khâu kiểm duyệt nghiêm ngặt của Google Play Console.
+Đặc tả Yêu cầu Phi chức năng
+Hiệu năng (Performance):  Tốc độ phản hồi truy vấn tìm kiếm cục bộ trên cơ sở dữ liệu SQLite phải đạt dưới  50ms . Thời gian khởi động ứng dụng (Cold start) đạt dưới  1.5 giây .
+Bảo mật (Security):  Toàn bộ dữ liệu truyền tải giữa Mobile App và Backend API phải được mã hóa qua HTTPS/TLS. Hệ thống không lưu trữ trái phép bất kỳ thông tin nhận dạng cá nhân (PII) nào của người dùng.
+Dung lượng & Tài nguyên:  Kích thước bản cài đặt tối ưu (APK/AAB) dưới  30MB . Tối ưu hóa tiêu thụ RAM dưới  150MB  và mức sử dụng pin ở mức tối thiểu.
+Chuẩn hóa Tuân thủ Google Play Console Guidelines
+Bảng danh sách kiểm duyệt (Checklist) tuân thủ chính sách xuất bản:
+Hạng mục Kiểm duyệt,Nội dung Tuân thủ Chi tiết,Giải pháp Thực thi Kỹ thuật
+Chính sách Quyền riêng tư (Privacy Policy),"Minh bạch trong việc thu thập và sử dụng dữ liệu người dùng, tuân thủ quy định về Cookie và Phân tích (Analytics).","Xuất bản trang Privacy Policy trực tuyến, tích hợp banner thông báo chấp thuận Cookie/Analytics trong app."
+Quyền truy cập (App Permissions),Minimal Permissions: Chỉ yêu cầu các quyền thực sự cần thiết cho chức năng ứng dụng.,"Không yêu cầu các quyền nhạy cảm như Vị trí (Location), Danh bạ (Contacts), hay SMS; chỉ dùng quyền INTERNET và ACCESS_NETWORK_STATE."
+Tuân thủ Sở hữu Trí tuệ (IP Policy),"Đảm bảo nội dung hiển thị không vi phạm bản quyền thương mại của Google, Mozilla hay roadmap.sh.","Tích hợp tự động mô-đun ghi công (Attribution Module) cho CC BY-SA/CC BY 4.0; biên soạn lại cấu trúc cây kỹ năng, không sao chép văn bản thô từ roadmap.sh."
+Mục tiêu SDK & Kiến trúc CH Play Target,Tuân thủ các quy định kỹ thuật bắt buộc hiện hành của Google Play Console về phiên bản Android Target.,"Cấu hình  Target SDK 34+ (Android 14+) ,  Minimum SDK 24 (Android 7.0) , và hỗ trợ hoàn chỉnh kiến trúc mã máy 64-bit (arm64-v8a)."
+Xử lý Sự cố (Crash Rate),"Đảm bảo ứng dụng vận hành ổn định, không bị văng ngắt đột ngột trên các thiết bị Android khác nhau.","Tích hợp Firebase Crashlytics để theo dõi lỗi realtime, cam kết tỷ lệ sự cố do người dùng nhận biết (User-perceived crash rate)  < 1.09% ."
+Nội dung tiếp theo sẽ trình bày lộ trình thực thi dự án và quy trình đóng gói triển khai ứng dụng lên Google Play Store.
+7. LỘ TRÌNH PHÁT TRIỂN & ĐÓNG GÓI TRIỂN KHAI CH PLAY (DEVELOPMENT ROADMAP & DEPLOYMENT)
+Dự án được phân kỳ phát triển thành 3 giai đoạn rõ ràng nhằm tối ưu hóa nguồn lực, kiểm chứng sản phẩm và giảm thiểu rủi ro vận hành.
+Phân kỳ Lộ trình Phát triển (3 Giai đoạn)
+Giai đoạn 1: Phiên bản Tối thiểu (MVP - Phase 1)
+Tập trung xây dựng bộ cơ sở dữ liệu cốt lõi  1.000 thuật ngữ  thuộc lĩnh vực Lập trình Web và Khoa học Máy tính đại cương được trích xuất từ MDN Web Docs và CNCF Glossary.
+Hoàn thiện các tính năng cốt lõi: Tra cứu tức thì, Tìm kiếm mờ (Fuzzy Search), hiển thị 3 tầng kiến thức cơ bản và tích hợp Mô-đun Ghi công bản quyền tự động.
+Đóng gói bản cài đặt Android App Bundle (.aab) và phát hành phiên bản Beta thử nghiệm nội bộ trên Google Play Console.
+Giai đoạn 2: Tự động hóa Pipeline & Sơ đồ Tri thức (Phase 2)
+Mở rộng cơ sở dữ liệu lên  5.000+ thuật ngữ  bằng việc tích hợp đường ống kết nối tự động với NIST CSRC Glossary.
+Ra mắt giao diện Sơ đồ Lộ trình Tương tác (Knowledge Map), phân hệ Giải mã Ngữ cảnh (Context Decoder) và phân hệ Ôn tập Quiz/Flashcard Spaced Repetition.
+Giai đoạn 3: Mở rộng Hệ sinh thái & Đóng góp Cộng đồng (Phase 3)
+Mở cổng Đóng góp cộng đồng (Community Contribution Portal) có sự hỗ trợ của quy trình kiểm duyệt chuyên gia.
+Phát triển tiện ích mở rộng trên trình duyệt (Browser Extension) hỗ trợ giải mã thuật ngữ nhanh cho người dùng khi đọc tài liệu trên GitHub hoặc StackOverflow.
+Đóng gói & Triển khai CH Play
+Biên dịch & Ký số:  Biên dịch ứng dụng sang định dạng Android App Bundle (.aab) tối ưu dung lượng. Thực hiện ký số ứng dụng bằng cơ chế  App Signing by Google Play .
+Cấu hình Store Listing:
+Icon & Graphics:  Thiết kế biểu tượng ứng dụng chuẩn 512x512 px, Feature Graphic 1024x500 px, và bộ ảnh chụp màn hình (Screenshots) trên các thiết bị di động.
+Mô tả ứng dụng (SEO):  Soạn thảo tên ứng dụng, mô tả ngắn (Short description) và mô tả chi tiết (Full description) tối ưu hóa từ khóa tìm kiếm chuẩn SEO.
+Phát hành cuốn chiếu (Staged Rollout):  Tiến hành phát hành ứng dụng theo luồng Staged Rollout, bắt đầu từ  10%  người dùng, sau đó tăng dần lên  25% ,  50%  và  100%  dựa trên việc theo dõi tỷ lệ Crashlytics và phản hồi của người dùng.
+Tài liệu Đặc tả Yêu cầu Phần mềm (SRS) này đã hoàn thiện đầy đủ các khía cạnh kiến trúc, chức năng, pháp lý và hạ tầng, sẵn sàng cho đội ngũ lập trình và kiểm thử bắt tay vào thi công hệ thống.
+
+Có thể học được lộ trình romap theo những vị trí mà người dùng muốn và có thể gợi ý cho người dùng viết đó nên học gì và các từ khóa phù hợp để từ từ mở rộng lên

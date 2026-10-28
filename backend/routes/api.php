@@ -16,6 +16,9 @@ Route::prefix('v1')->group(function () {
     // FR-COMM: Cổng đóng góp cộng đồng
     Route::post('contributions', [ContributionController::class, 'store']);
     Route::get('contributions', [ContributionController::class, 'index']);
-    Route::post('contributions/{id}/approve', [ContributionController::class, 'approve'])->where('id', '[A-Za-z0-9_\-]+');
-    Route::post('contributions/{id}/reject', [ContributionController::class, 'reject'])->where('id', '[A-Za-z0-9_\-]+');
+    // Kiểm duyệt (approve/reject) yêu cầu bearer token moderator — FR-COMM-02.
+    Route::post('contributions/{id}/approve', [ContributionController::class, 'approve'])
+        ->middleware('moderator')->where('id', '[A-Za-z0-9_\-]+');
+    Route::post('contributions/{id}/reject', [ContributionController::class, 'reject'])
+        ->middleware('moderator')->where('id', '[A-Za-z0-9_\-]+');
 });

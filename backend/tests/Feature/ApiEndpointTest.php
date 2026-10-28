@@ -11,6 +11,19 @@ class ApiEndpointTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const MOD_TOKEN = 'test-moderator-token';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['services.moderation.token' => self::MOD_TOKEN]);
+    }
+
+    private function moderatorHeaders(): array
+    {
+        return ['Authorization' => 'Bearer '.self::MOD_TOKEN];
+    }
+
     private function term(array $overrides = []): Term
     {
         return Term::query()->create(array_merge([
@@ -101,7 +114,7 @@ class ApiEndpointTest extends TestCase
         $id = $store->json('data.id');
         $this->assertSame(Contribution::STATUS_PENDING, $store->json('data.status'));
 
-        $approve = $this->postJson("/api/v1/contributions/{$id}/approve");
+        $approve = $this->postJson("/api/v1/contributions/{$id}/approve", [], $this->moderatorHeaders());
         $approve->assertOk();
         $termId = $approve->json('term_id');
 
@@ -123,11 +136,30 @@ class ApiEndpointTest extends TestCase
         ]);
         $id = $store->json('data.id');
 
-        $this->postJson("/api/v1/contributions/{$id}/reject", ['review_note' => 'Chưa đủ căn cứ.'])
+        $this->postJson("/api/v1/contributions/{$id}/reject", ['review_note' => 'Chưa đủ căn cứ.'], $this->moderatorHeaders())
             ->assertOk()
             ->assertJsonPath('data.status', Contribution::STATUS_REJECTED);
 
         $this->assertNull(Term::query()->whereRaw('LOWER(tier_1_acronym) = ?', ['xyz'])->first());
+    }
+
+    public function test_approve_requires_moderator_token(): void
+    {
+        $store = $this->postJson('/api/v1/contributions', [
+            'contributor_name' => 'Ai Đó',
+            'tier_1_acronym' => 'AUTHZ',
+            'tier_1_full_name_en' => 'Authz Probe',
+            'tier_1_short_definition' => 'Probe.',
+        ]);
+        $id = $store->json('data.id');
+
+        // Không có token -> 401.
+        $this->postJson("/api/v1/contributions/{$id}/approve")->assertStatus(401);
+        // Sai token -> 403.
+        $this->postJson("/api/v1/contributions/{$id}/approve", [], ['Authorization' => 'Bearer wrong'])
+            ->assertStatus(403);
+        // Endpoint chưa được duyệt vẫn pending, chưa tạo term.
+        $this->assertNull(Term::query()->find('ct_authz'));
     }
 
     public function test_contribution_store_validates_required_fields(): void

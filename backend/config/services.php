@@ -14,6 +14,11 @@ return [
     |
     */
 
+    // FR-COMM-02 (interim): bearer token bảo vệ endpoint kiểm duyệt đóng góp.
+    'moderation' => [
+        'token' => env('MODERATION_API_TOKEN'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

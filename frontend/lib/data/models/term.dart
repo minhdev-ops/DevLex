@@ -65,6 +65,7 @@ class Term {
     required this.relatedTerms,
     required this.career,
     required this.attribution,
+    this.concept,
   });
 
   final String id;
@@ -81,6 +82,10 @@ class Term {
   final List<String> relatedTerms;
   final String? career;
   final List<Attribution> attribution;
+
+  /// Khóa khái niệm đã chuẩn hóa (server gom các mục từ cùng nghĩa nhưng khác
+  /// nguồn dưới khóa này) -> để hiển thị "mấy nguồn xác nhận" khi offline.
+  final String? concept;
 
   factory Term.fromJson(Map<String, dynamic> json) => Term(
         id: json['id'] as String,
@@ -103,6 +108,7 @@ class Term {
         attribution: (json['attribution'] as List<dynamic>? ?? [])
             .map((e) => Attribution.fromJson(e as Map<String, dynamic>))
             .toList(),
+        concept: json['concept'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -119,6 +125,7 @@ class Term {
         'prerequisites': prerequisites,
         'relatedTerms': relatedTerms,
         'career': career,
+        'concept': concept,
         'attribution': attribution.map((a) => a.toJson()).toList(),
       };
 }

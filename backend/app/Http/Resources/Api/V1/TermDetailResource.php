@@ -35,6 +35,9 @@ class TermDetailResource extends JsonResource
             ],
             'source_attribution' => $this->source_attribution,
             'roadmap_career' => $this->roadmap_career,
+            // Khóa khái niệm: client offline tự gom các mục từ cùng khái niệm
+            // để tính mức đồng thuận đa nguồn mà không cần thêm request nào.
+            'concept' => $this->concept,
         ];
     }
 }

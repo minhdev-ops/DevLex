@@ -231,6 +231,8 @@ class ApiEndpointTest extends TestCase
         foreach ($res->json('changes.updated') as $row) {
             $this->assertArrayNotHasKey('context_group', $row);
             $this->assertArrayNotHasKey('trust', $row);
+            // Client offline cần khóa này để tự gom ngữ cảnh + chấm điểm đồng thuận.
+            $this->assertArrayHasKey('concept', $row);
         }
 
         $this->getJson('/api/v1/terms/rfc_acl')
@@ -262,6 +264,8 @@ class ApiEndpointTest extends TestCase
         // FR-COMM-03: contributor được ghi vào source_attribution.
         $authors = array_column($term->source_attribution, 'author');
         $this->assertContains('Trần Minh', $authors);
+        // Mục từ mới phải mang khóa khái niệm ngay, không chờ glossary:link-concepts.
+        $this->assertSame('grpcremoteprocedurecall', $term->concept);
     }
 
     public function test_contribution_reject_records_note(): void

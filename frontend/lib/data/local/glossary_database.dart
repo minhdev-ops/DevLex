@@ -14,12 +14,19 @@ class GlossaryDatabase {
   static final GlossaryDatabase instance = GlossaryDatabase._();
 
   static const _dbName = 'glossary.db';
-  static const _dbVersion = 3;
+  static const _dbVersion = 4;
   static const _seedAsset = 'assets/seed/terms.json';
 
   Database? _db;
 
   Future<Database> get database async => _db ??= await _open();
+
+  /// Đóng và quên kết nối — test cần mở lại một DB tạm khác.
+  Future<void> close() async {
+    final db = _db;
+    _db = null;
+    await db?.close();
+  }
 
   Future<Database> _open() async {
     final path = join(await getDatabasesPath(), _dbName);
@@ -42,6 +49,7 @@ class GlossaryDatabase {
             prerequisites TEXT NOT NULL DEFAULT '[]',
             related_terms TEXT NOT NULL DEFAULT '[]',
             career TEXT,
+            concept TEXT,
             source_attribution TEXT NOT NULL DEFAULT '[]'
           )
         ''');
@@ -106,6 +114,9 @@ class GlossaryDatabase {
             )
           ''');
         }
+        if (oldVersion < 4) {
+          await db.execute('ALTER TABLE terms ADD COLUMN concept TEXT');
+        }
       },
     );
     return db;
@@ -135,6 +146,7 @@ class GlossaryDatabase {
         'prerequisites': jsonEncode(t.prerequisites),
         'related_terms': jsonEncode(t.relatedTerms),
         'career': t.career,
+        'concept': t.concept,
         'source_attribution': jsonEncode(
             t.attribution.map((a) => a.toJson()).toList()),
       });
@@ -253,6 +265,7 @@ class GlossaryDatabase {
       prerequisites: decodeStringList(row['prerequisites']),
       relatedTerms: decodeStringList(row['related_terms']),
       career: row['career'] as String?,
+      concept: row['concept'] as String?,
       attribution: (jsonDecode(row['source_attribution'] as String? ?? '[]')
               as List<dynamic>)
           .map((e) => Attribution.fromJson(e as Map<String, dynamic>))
@@ -309,6 +322,7 @@ class GlossaryDatabase {
         'prerequisites': jsonEncode(t.prerequisites),
         'related_terms': jsonEncode(t.relatedTerms),
         'career': t.career,
+        'concept': t.concept,
         'source_attribution': jsonEncode(t.attribution.map((a) => a.toJson()).toList()),
       };
 

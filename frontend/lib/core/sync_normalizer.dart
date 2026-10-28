@@ -61,6 +61,7 @@ class SyncNormalizer {
       'prerequisites': (t3['prerequisites'] as List<dynamic>?) ?? const [],
       'relatedTerms': (t3['related_terms'] as List<dynamic>?) ?? const [],
       'career': api['roadmap_career'],
+      'concept': api['concept'],
       'attribution': (api['source_attribution'] as List<dynamic>?) ?? const [],
     };
   }

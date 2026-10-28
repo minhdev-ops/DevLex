@@ -51,6 +51,24 @@ void main() {
       expect(term.attribution.single.isVerified, isTrue);
     });
 
+    test('khóa concept đi kèm để gom ngữ cảnh offline (issue #8)', () {
+      final withConcept = <String, dynamic>{
+        ...sample,
+        'changes': {
+          'updated': [
+            {
+              ...(sample['changes'] as Map<String, dynamic>)['updated']!.first as Map<String, dynamic>,
+              'concept': 'applicationprogramminginterface',
+            },
+          ],
+          'deleted_ids': [],
+        },
+      };
+      final r = SyncNormalizer.normalize(withConcept);
+      expect(r.rows.single['concept'], 'applicationprogramminginterface');
+      expect(Term.fromJson(r.rows.single).concept, 'applicationprogramminginterface');
+    });
+
     test('payload rỗng an toàn', () {
       final r = SyncNormalizer.normalize({'changes': {}});
       expect(r.rows, isEmpty);

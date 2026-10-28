@@ -24,6 +24,9 @@ class TermDetailScreen extends StatelessWidget {
         .map((a) => a.confidence ?? 0)
         .fold<int>(0, (prev, el) => el > prev ? el : prev);
     final trusted = term.attribution.any((a) => a.isVerified) || maxConfidence >= 90;
+    // SRS mục 4: một khái niệm có thể được nhiều nguồn định nghĩa -> cộng hưởng
+    // điểm tin cậy, tính offline từ khóa concept mà delta sync mang về.
+    final trust = GlossaryRepository.instance.trustFor(term);
 
     return Scaffold(
       appBar: AppBar(
@@ -37,7 +40,7 @@ class TermDetailScreen extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 backgroundColor: AppTheme.tier1.withValues(alpha: 0.12),
                 label: Text(
-                  maxConfidence > 0 ? '✓ Nguồn uy tín · $maxConfidence' : '✓ Nguồn uy tín',
+                  trust.confidence > 0 ? '✓ Nguồn uy tín · ${trust.confidence}' : '✓ Nguồn uy tín',
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -64,6 +67,8 @@ class TermDetailScreen extends StatelessWidget {
             child: _Tier3Body(term: term),
           ),
           const SizedBox(height: 16),
+          _TrustCard(trust: trust),
+          const SizedBox(height: 12),
           _AttributionCard(attribution: term.attribution),
         ],
       ),
@@ -247,6 +252,81 @@ class _TermLinkGroup extends StatelessWidget {
             }).toList(),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TrustCard extends StatelessWidget {
+  const _TrustCard({required this.trust});
+
+  final ConceptTrust trust;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = trust.agreeingSources.length;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.verified_outlined, size: 18, color: AppTheme.tier1),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Mức tin cậy (chấm điểm đa nguồn)',
+                      style: Theme.of(context).textTheme.labelLarge),
+                ),
+                Text('${trust.confidence}/100',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold, color: AppTheme.tier1)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              n > 1
+                  ? '$n nguồn độc lập cùng định nghĩa khái niệm này: ${trust.agreeingSources.join(', ')}'
+                  : (n == 1
+                      ? 'Một nguồn: ${trust.agreeingSources.first}'
+                      : 'Chưa có thông tin nguồn cho khái niệm này.'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            ...trust.contexts.map((sibling) => InkWell(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => TermDetailScreen(termId: sibling.id)),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${sibling.attribution.isEmpty ? '' : '${sibling.attribution.first.source} · '}${sibling.acronym}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        Text(sibling.shortDefinition,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color:
+                                      Theme.of(context).colorScheme.onSurfaceVariant,
+                                )),
+                      ],
+                    ),
+                  ),
+                )),
+          ],
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Glossary\TermText;
 use Illuminate\Database\Eloquent\Model;
 
 class Contribution extends Model
@@ -53,6 +54,7 @@ class Contribution extends Model
             'tier_1_acronym' => $this->tier_1_acronym ?: mb_substr($this->tier_1_full_name_en, 0, 40),
             'tier_1_full_name_en' => $this->tier_1_full_name_en,
             'tier_1_full_name_vi' => '',
+            'concept' => TermText::conceptKey($this->tier_1_full_name_en) ?: null,
             'tier_1_short_definition' => $this->tier_1_short_definition,
             'tier_2_detailed_explanation' => $this->tier_2_detailed_explanation,
             'tier_2_metaphor_analogy' => null,

@@ -1,5 +1,6 @@
 import '../core/fuzzy.dart';
 import '../core/sync_normalizer.dart';
+import '../core/trust.dart';
 import 'api_client.dart';
 import 'local/glossary_database.dart';
 import 'models/term.dart';
@@ -22,6 +23,7 @@ class GlossaryRepository {
   List<Term> _terms = const [];
   Map<String, TermAlias> _aliases = const {};
   Map<String, Term> _byId = const {};
+  Map<String, List<Term>> _byConcept = const {};
   Map<String, StudyState> _study = const {};
   bool _loaded = false;
 
@@ -31,6 +33,13 @@ class GlossaryRepository {
     _aliases = await GlossaryDatabase.instance.loadAliases();
     _study = await GlossaryDatabase.instance.allStudyStates();
     _byId = {for (final t in _terms) t.id: t};
+    final byConcept = <String, List<Term>>{};
+    for (final t in _terms) {
+      final key = t.concept;
+      if (key == null || key.isEmpty) continue;
+      byConcept.putIfAbsent(key, () => []).add(t);
+    }
+    _byConcept = byConcept;
     _loaded = true;
   }
 
@@ -100,6 +109,28 @@ class GlossaryRepository {
   }
 
   Term? termById(String id) => _byId[id];
+
+  /// Cùng khái niệm nhưng mỗi nguồn một ngữ cảnh (SRS mục 4, issue #8 giai đoạn 2).
+  /// Gom offline theo khóa `concept` mà delta sync mang về — không cần request thêm.
+  ConceptTrust trustFor(Term term) {
+    final key = term.concept;
+    final group = (key == null || key.isEmpty) ? const <Term>[] : (_byConcept[key] ?? const <Term>[]);
+    final contexts = group.where((t) => t.id != term.id).toList(growable: false);
+
+    final sources = <String>{
+      for (final a in term.attribution) a.source,
+      for (final t in contexts)
+        if (t.attribution.isNotEmpty) t.attribution.first.source,
+    }.where((s) => s.isNotEmpty).toList(growable: false);
+
+    final own = term.attribution.isEmpty ? null : term.attribution.first.confidence;
+
+    return ConceptTrust(
+      contexts: contexts,
+      agreeingSources: sources,
+      confidence: corroboratedConfidence(own ?? 50, sources.length),
+    );
+  }
 
   /// Instant search (<50ms) + fuzzy + acronym alias mapping, offline.
   List<SearchResult> search(String query, {int limit = 20}) {
@@ -282,4 +313,22 @@ class SyncOutcome {
   final int updated;
   final int deleted;
   final int serverTimestamp;
+}
+
+/// Mức tin cậy của một khái niệm, tính offline từ các mục từ cùng `concept`.
+class ConceptTrust {
+  const ConceptTrust({
+    required this.contexts,
+    required this.agreeingSources,
+    required this.confidence,
+  });
+
+  /// Các ngữ cảnh từ nguồn khác cho cùng khái niệm.
+  final List<Term> contexts;
+
+  /// Tên nguồn độc lập đã định nghĩa khái niệm này.
+  final List<String> agreeingSources;
+
+  /// Điểm đã cộng hưởng (+4 mỗi nguồn phụ, trần 100) — cùng công thức backend.
+  final int confidence;
 }

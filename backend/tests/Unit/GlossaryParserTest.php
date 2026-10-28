@@ -1,0 +1,126 @@
+<?php
+
+namespace Tests\Unit;
+
+use App\Services\Glossary\CncfParser;
+use App\Services\Glossary\MdnParser;
+use App\Services\Glossary\TermText;
+use PHPUnit\Framework\TestCase;
+
+class GlossaryParserTest extends TestCase
+{
+    public function test_mdn_parses_real_api_entry(): void
+    {
+        $doc = <<<'MD'
+---
+title: API
+slug: Glossary/API
+page-type: glossary-definition
+sidebar: glossarysidebar
+---
+
+An **API** (Application Programming Interface) is a set of features and rules that exist inside a software program enabling interaction with it through software.
+
+In Web development, an API is generally a set of code features (e.g., {{glossary("method","methods")}}, events, and {{Glossary("URL","URLs")}}) a developer can use.
+
+## See also
+
+- [Web API reference](/en-US/docs/Web/API)
+MD;
+
+        $term = (new MdnParser)->parse('api', $doc);
+        $this->assertNotNull($term);
+        $this->assertSame('md_api', $term->id);
+        $this->assertSame('API', $term->acronym);
+        $this->assertStringContainsString('set of features and rules', $term->shortDefinition);
+        $this->assertLessThanOrEqual(61, count(explode(' ', $term->shortDefinition)));
+        $this->assertSame('CC BY-SA 2.5', $term->license);
+        $this->assertSame('Mozilla Contributors', $term->author);
+        $this->assertContains('md_method', $term->relatedSlugs);
+        $this->assertContains('md_url', $term->relatedSlugs);
+        // macro & link đã bị gỡ
+        $this->assertStringNotContainsString('{{', $term->shortDefinition);
+    }
+
+    public function test_mdn_skips_non_definition_page_type(): void
+    {
+        $doc = "---\ntitle: Foo\npage-type: guide\n---\nBody here.";
+        $this->assertNull((new MdnParser)->parse('foo', $doc));
+    }
+
+    public function test_cncf_parses_kubernetes_with_crosslinks(): void
+    {
+        $doc = <<<'MD'
+---
+title: Kubernetes
+status: Completed
+category: technology
+tags: ["infrastructure", "fundamental", ""]
+---
+
+Kubernetes, often abbreviated as K8s, is an open source container orchestrator. It automates the lifecycle of containerized applications, managing them across a [distributed system](/distributed-systems/).
+
+Kubernetes schedules [containers](/container/) across [nodes](/nodes/) in a [cluster](/cluster/).
+
+## Problem it addresses
+
+Infrastructure automation matters as [cloud computing](/cloud-computing/) gains popularity.
+MD;
+
+        $term = (new CncfParser)->parse('kubernetes', $doc);
+        $this->assertNotNull($term);
+        $this->assertSame('cn_kubernetes', $term->id);
+        $this->assertSame('Kubernetes', $term->acronym);
+        $this->assertStringContainsString('open source container orchestrator', $term->shortDefinition);
+        $this->assertSame('CC BY 4.0', $term->license);
+        $this->assertSame('Beginner', $term->difficulty);   // có tag fundamental
+        $this->assertSame('devops', $term->career);          // category: technology
+        foreach (['cn_container', 'cn_nodes', 'cn_cluster', 'cn_cloud-computing'] as $rel) {
+            $this->assertContains($rel, $term->relatedSlugs);
+        }
+        $this->assertStringNotContainsString('##', $term->detailedExplanation);
+    }
+
+    public function test_cncf_skips_incomplete_status(): void
+    {
+        $doc = "---\ntitle: Wip\nstatus: In Progress\ncategory: pattern\n---\nSome text.";
+        $this->assertNull((new CncfParser)->parse('wip', $doc));
+    }
+
+    public function test_term_row_shape_matches_terms_table(): void
+    {
+        $row = (new CncfParser)->parse('kubernetes', <<<'MD'
+---
+title: Kubernetes
+status: Completed
+category: technology
+tags: ["fundamental"]
+---
+
+Kubernetes is a container orchestrator.
+MD
+        )->toTermRow();
+
+        foreach ([
+            'id', 'tier_1_acronym', 'tier_1_full_name_en', 'tier_1_full_name_vi',
+            'tier_1_short_definition', 'tier_2_detailed_explanation', 'tier_3_category_tags',
+            'tier_3_difficulty_level', 'tier_3_related_terms', 'roadmap_career', 'source_attribution',
+        ] as $key) {
+            $this->assertArrayHasKey($key, $row);
+        }
+        $this->assertSame('tier_1', $row['source_attribution'][0]['component']);
+        $this->assertSame('CNCF Cloud Native Glossary', $row['source_attribution'][0]['source']);
+    }
+
+    public function test_clean_strips_bold_links_and_headings(): void
+    {
+        $raw = "## Heading\nAn **API** is [a contract](/en-US/docs/API) with {{glossary(\"HTTP\",\"methods\")}}.";
+        $out = TermText::clean($raw);
+        $this->assertStringNotContainsString('**', $out);
+        $this->assertStringNotContainsString('[a contract](', $out);
+        $this->assertStringNotContainsString('{{glossary', $out);
+        $this->assertStringNotContainsString('Heading', $out);
+        $this->assertStringContainsString('a contract', $out);
+        $this->assertStringContainsString('methods', $out);
+    }
+}

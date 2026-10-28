@@ -190,6 +190,19 @@ class GlossaryRepository {
 
   Map<String, StudyState> get allStudyStates => _study;
 
+  /// Kho đang có sẵn trên máy — cho người dùng biết mình đang tra cứu bao nhiêu mục từ.
+  int get termCount => _terms.length;
+
+  /// Số khái niệm được từ hai nguồn độc lập trở lên cùng định nghĩa (điểm tin cậy cao nhất).
+  int get corroboratedConceptCount => _byConcept.values.where((l) => l.length > 1).length;
+
+  /// Lần kéo delta sync gần nhất; null nếu chưa từng đồng bộ (dữ liệu đóng gói trong app).
+  Future<DateTime?> lastSyncAt() async {
+    final epoch = await GlossaryDatabase.instance.getSyncCursor();
+    if (epoch == 0) return null;
+    return DateTime.fromMillisecondsSinceEpoch(epoch * 1000);
+  }
+
   /// Tỷ lệ % hoàn thành một lộ trình nghề nghiệp (FR-MAP-03).
   Future<int> careerProgress(String career) =>
       GlossaryDatabase.instance.progressPercent(career);

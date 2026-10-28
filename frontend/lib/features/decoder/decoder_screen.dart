@@ -1,6 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 
+import '../../core/context_decoder.dart';
 import '../../data/glossary_repository.dart';
 import '../../data/models/term.dart';
 import '../detail/term_detail_screen.dart';
@@ -19,7 +21,10 @@ class _DecoderScreenState extends State<DecoderScreen> {
       'Cần tuyển vị trí Backend Dev hiểu biết về REST API, JWT và triển khai trên K8s.';
 
   List<InlineSpan>? _spans;
+  bool _truncated = false;
   final List<TapGestureRecognizer> _recognizers = [];
+
+  static const _decoder = ContextDecoder();
 
   @override
   void initState() {
@@ -38,32 +43,30 @@ class _DecoderScreenState extends State<DecoderScreen> {
   }
 
   /// FR-DEC-01: tách từ, khớp CSDL thuật ngữ, highlight acronym tìm được.
+  /// Văn bản vượt 10.000 ký tự được cắt bớt (không crash) và báo cho người dùng.
   void _analyze() {
     for (final r in _recognizers) {
       r.dispose();
     }
     _recognizers.clear();
 
-    final text = _controller.text;
+    final result =
+        _decoder.decode(_controller.text, (t) => _repo.findByAcronymExact(t)?.id);
     final spans = <InlineSpan>[];
     final matches = <Term>[];
-
-    // Token hóa giữ nguyên ký tự phân cách giữa các từ.
-    final tokens = RegExp(r'[A-Za-z0-9/]+|[^A-Za-z0-9/]+').allMatches(text);
     final theme = Theme.of(context);
 
-    for (final m in tokens) {
-      final token = m.group(0)!;
-      final term = _repo.findByAcronymExact(token);
+    for (final token in result.tokens) {
+      final term = token.termId == null ? null : _repo.termById(token.termId!);
       if (term == null) {
-        spans.add(TextSpan(text: token, style: theme.textTheme.bodyLarge));
+        spans.add(TextSpan(text: token.text, style: theme.textTheme.bodyLarge));
       } else {
         final recognizer = TapGestureRecognizer()
           ..onTap = () => _showPopover(term);
         _recognizers.add(recognizer);
         matches.add(term);
         spans.add(TextSpan(
-          text: token,
+          text: token.text,
           style: theme.textTheme.bodyLarge?.copyWith(
             color: theme.colorScheme.primary,
             fontWeight: FontWeight.bold,
@@ -77,6 +80,7 @@ class _DecoderScreenState extends State<DecoderScreen> {
     setState(() {
       _spans = spans;
       _found = matches;
+      _truncated = result.truncated;
     });
   }
 
@@ -140,12 +144,24 @@ class _DecoderScreenState extends State<DecoderScreen> {
             controller: _controller,
             minLines: 3,
             maxLines: 6,
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(_decoder.maxChars),
+            ],
             decoration: const InputDecoration(
               hintText: 'Dán nội dung tại đây (dưới 10.000 ký tự)...',
             ),
             onChanged: (_) => _analyze(),
           ),
           const SizedBox(height: 16),
+          if (_truncated)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                'Văn bản vượt 10.000 ký tự — hệ thống chỉ phân tích 10.000 ký tự đầu.',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.error),
+              ),
+            ),
           if (_spans != null) ...[
             Row(
               children: [

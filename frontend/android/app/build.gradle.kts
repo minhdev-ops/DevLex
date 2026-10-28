@@ -24,10 +24,15 @@ android {
         applicationId = "com.devlex.it_glossary"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        // NFR / Google Play: Minimum SDK 24 (Android 7.0), Target SDK 34 (Android 14+).
+        minSdk = 24
+        targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        ndk {
+            // Hỗ trợ đầy đủ architecture 64-bit theo yêu cầu Google Play.
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     buildTypes {

@@ -8,6 +8,7 @@ use App\Services\Glossary\CncfParser;
 use App\Services\Glossary\MdnParser;
 use App\Services\Glossary\NistParser;
 use App\Services\Glossary\ParsedTerm;
+use App\Services\Glossary\Rfc4949Parser;
 use App\Services\Glossary\SourceRegistry;
 use App\Services\Glossary\TermText;
 use Illuminate\Console\Command;
@@ -29,7 +30,7 @@ class ImportGlossary extends Command
         $limit = (int) $this->option('limit');
         $dryRun = (bool) $this->option('dry-run');
 
-        $sources = $source === 'all' ? ['nist', 'mdn', 'cncf'] : [$source];
+        $sources = $source === 'all' ? ['nist', 'mdn', 'cncf', 'rfc4949'] : [$source];
 
         $parsed = [];
         foreach ($sources as $src) {
@@ -37,6 +38,7 @@ class ImportGlossary extends Command
                 'mdn' => $this->ingestMdn($limit),
                 'cncf' => $this->ingestCncf($limit),
                 'nist' => $this->ingestNist($limit),
+                'rfc4949' => $this->ingestRfc4949($limit),
                 default => [],
             };
             $this->info(sprintf('[%s] parsed %d thuật ngữ hợp lệ', $src, count($batch)));
@@ -132,6 +134,29 @@ class ImportGlossary extends Command
         }
 
         return $out;
+    }
+
+    /**
+     * RFC 4949 là MỘT file văn bản thuần chứa ~1657 mục từ -> fetch một lần,
+     * parse toàn bộ rồi cắt theo --limit.
+     *
+     * @return ParsedTerm[]
+     */
+    private function ingestRfc4949(int $limit): array
+    {
+        $res = Http::withHeaders(['User-Agent' => 'DevLex-Glossary'])
+            ->timeout(60)
+            ->get('https://www.rfc-editor.org/rfc/rfc4949.txt');
+
+        if ($res->failed()) {
+            $this->warn("Không tải được RFC 4949: HTTP {$res->status()}");
+
+            return [];
+        }
+
+        $terms = (new Rfc4949Parser)->parseDocument($res->body());
+
+        return $limit > 0 ? array_slice($terms, 0, $limit) : $terms;
     }
 
     /**

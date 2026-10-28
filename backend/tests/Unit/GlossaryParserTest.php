@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Services\Glossary\CncfParser;
 use App\Services\Glossary\MdnParser;
 use App\Services\Glossary\NistParser;
+use App\Services\Glossary\Rfc4949Parser;
 use App\Services\Glossary\SourceRegistry;
 use App\Services\Glossary\TermText;
 use PHPUnit\Framework\TestCase;
@@ -124,7 +125,7 @@ MD
             .'<p>NIST SP 800-207 NIST IR 8432</p></div>'
             .'<strong>Definitions:</strong> &nbsp;&nbsp; An enterprise’s cybersecurity plan that '
             .'utilizes zero trust concepts and encompasses component relationships, workflow planning, '
-            . 'and access policies. Sources: NIST SP 800-207</div></div>'
+            .'and access policies. Sources: NIST SP 800-207</div></div>'
             .'<div class="col-lg-4">sidebar</div></main>';
 
         $term = (new NistParser)->parse('zero_trust_architecture', $html);
@@ -177,6 +178,60 @@ MD
     public function test_nist_skips_page_without_definition_block(): void
     {
         $this->assertNull((new NistParser)->parse('missing', '<title>x - Glossary | CSRC</title><main>nope</main>'));
+    }
+
+    public function test_rfc4949_parses_entries_across_page_breaks(): void
+    {
+        $text = "intro\n"
+            ."\x0C\n"
+            ."RFC 4949         Internet Security Glossary, Version 2       August 2007\n"
+            ."   \$ algorithm\n"
+            ."      (I) A finite set of step-by-step instructions for a problem-\n"
+            ."      solving or computation procedure, especially one that can be\n"
+            ."      implemented by a computer. (See: cryptographic algorithm.)\n"
+            ."\n"
+            ."Shirey                       Informational                     [Page 17]\n"
+            ."   \$ access control list (ACL)\n"
+            ."      1. (N) /network/ A list of permissions attached to an object.\n"
+            ."\n"
+            ."      Tutorial: An ACL specifies which users or processes are\n"
+            ."      granted access.\n"
+            ."   \$ cryptographic algorithm\n"
+            ."      (I) An algorithm that is used to achieve cryptography.\n";
+
+        $terms = (new Rfc4949Parser)->parseDocument($text);
+
+        $this->assertCount(3, $terms);
+
+        $algo = $terms[0];
+        $this->assertSame('algorithm', $algo->acronym);
+        $this->assertStringContainsString('finite set of step-by-step', $algo->shortDefinition);
+        // Gạch nối mềm cuối dòng được nối lại: "problem-" + "solving" -> "problem-solving"
+        $this->assertStringContainsString('problem-solving', $algo->shortDefinition);
+        $this->assertStringNotContainsString('problem- solving', $algo->shortDefinition);
+        // "(I)" marker đã bị bỏ.
+        $this->assertStringStartsNotWith('(I)', $algo->shortDefinition);
+
+        $acl = $terms[1];
+        $this->assertSame('ACL', $acl->acronym);
+        $this->assertSame('access control list', $acl->fullNameEn);
+        $this->assertStringContainsString('list of permissions', $acl->shortDefinition);
+        // Nhãn miền đầu mục "/network/" và marker "(N)" bị bỏ, không lọt vào định nghĩa.
+        $this->assertStringNotContainsString('network', $acl->shortDefinition);
+        $this->assertStringStartsNotWith('(', $acl->shortDefinition);
+        // Page break giữa hai mục từ không làm vỡ mục "algorithm" (không có "See:" trôi sang ACL).
+        $this->assertStringNotContainsString('cryptographic', $acl->shortDefinition);
+
+        // Entry-level attribution + trust.
+        $this->assertSame('rfc4949', $acl->source);
+        $this->assertSame(1, $acl->authorityTier);
+        $this->assertSame(93, $acl->confidence);
+
+        // "(See: cryptographic algorithm.)" được phân giải thành id mục tiêu thật.
+        $crypto = $terms[2];
+        $this->assertSame([$crypto->id], $algo->relatedSlugs);
+        // Mục không có tham chiếu thì không bịa quan hệ.
+        $this->assertSame([], $acl->relatedSlugs);
     }
 
     public function test_source_registry_tiers_and_corroboration(): void

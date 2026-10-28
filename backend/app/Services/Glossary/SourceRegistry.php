@@ -34,6 +34,13 @@ final class SourceRegistry
             'tier' => 2,
             'confidence' => 80,
         ],
+        'rfc4949' => [
+            'label' => 'IETF RFC 4949 — Internet Security Glossary v2',
+            'license' => 'IETF Trust Legal Provisions (reusable with attribution)',
+            'author' => 'IETF / R. Shirey',
+            'tier' => 1,
+            'confidence' => 93,
+        ],
     ];
 
     /** @return array{label:string, license:string, author:string, tier:int, confidence:int} */

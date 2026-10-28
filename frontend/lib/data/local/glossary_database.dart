@@ -327,17 +327,25 @@ class GlossaryDatabase {
       };
 
   static const _cursorKey = 'last_pulled_at';
+  static const _contributorKey = 'contributor_name';
 
-  Future<int> getSyncCursor() async {
+  Future<String?> getMeta(String key) async {
     final db = await database;
-    final row = await db.query('sync_meta', where: 'key = ?', whereArgs: [_cursorKey], limit: 1);
-    if (row.isEmpty) return 0;
-    return int.tryParse(row.first['value'] as String) ?? 0;
+    final row = await db.query('sync_meta', where: 'key = ?', whereArgs: [key], limit: 1);
+    return row.isEmpty ? null : row.first['value'] as String?;
   }
 
-  Future<void> setSyncCursor(int epochSeconds) async {
+  Future<void> setMeta(String key, String value) async {
     final db = await database;
-    await db.insert('sync_meta', {'key': _cursorKey, 'value': epochSeconds.toString()},
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('sync_meta', {'key': key, 'value': value}, conflictAlgorithm: ConflictAlgorithm.replace);
   }
+
+  Future<int> getSyncCursor() async => int.tryParse(await getMeta(_cursorKey) ?? '') ?? 0;
+
+  Future<void> setSyncCursor(int epochSeconds) => setMeta(_cursorKey, epochSeconds.toString());
+
+  /// FR-COMM-01: giữ tên người đóng góp giữa các phiên, không bắt buộc tài khoản.
+  Future<String?> getContributorName() => getMeta(_contributorKey);
+
+  Future<void> setContributorName(String name) => setMeta(_contributorKey, name.trim());
 }

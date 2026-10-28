@@ -51,7 +51,8 @@ class ApiClient {
       );
       if (res.statusCode == 201 || res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
-        return SubmitResult.ok(data['message'] as String? ?? 'Đã gửi đề xuất.');
+        final row = data['data'] as Map<String, dynamic>?;
+        return SubmitResult.ok(data['message'] as String? ?? 'Đã gửi đề xuất.', id: row?['id'] as String?);
       }
       final detail = _firstError(res.body);
       return SubmitResult.fail(detail ?? 'Máy chủ từ chối (HTTP ${res.statusCode}).');
@@ -76,12 +77,15 @@ class ApiClient {
 }
 
 class SubmitResult {
-  const SubmitResult._(this.ok, this.message);
+  const SubmitResult._(this.ok, this.message, this.id);
 
-  factory SubmitResult.ok(String message) => SubmitResult._(true, message);
+  factory SubmitResult.ok(String message, {String? id}) => SubmitResult._(true, message, id);
 
-  factory SubmitResult.fail(String message) => SubmitResult._(false, message);
+  factory SubmitResult.fail(String message) => SubmitResult._(false, message, null);
 
   final bool ok;
   final String message;
+
+  /// Mã đề xuất server trả về (hằng `c_...`) để người gửi theo dõi hàng kiểm duyệt.
+  final String? id;
 }

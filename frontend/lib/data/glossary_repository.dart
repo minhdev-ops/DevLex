@@ -1,4 +1,5 @@
 import '../core/fuzzy.dart';
+import '../core/study_stats.dart';
 import '../core/sync_normalizer.dart';
 import '../core/trust.dart';
 import 'api_client.dart';
@@ -326,6 +327,9 @@ class GlossaryRepository {
   /// FR-QUIZ-03: số ngày ôn tập liên tục gần nhất (streak tổng).
   int totalReviewStreak() =>
       _study.values.fold(0, (max, s) => s.streak > max ? s.streak : max);
+
+  /// FR-QUIZ-03: toàn bộ số liệu cho dashboard tiến trình ghi nhớ.
+  StudyStats studyStats() => StudyStats.from(_study.values);
 }
 
 class QuizQuestion {

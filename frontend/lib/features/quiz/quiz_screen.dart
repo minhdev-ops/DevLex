@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_theme.dart';
+import '../../core/study_stats.dart';
 import '../../data/glossary_repository.dart';
 import '../../data/models/term.dart';
 
@@ -69,6 +70,11 @@ class _QuizScreenState extends State<QuizScreen> {
         title: Text(_mode == _Mode.quiz ? 'Trắc nghiệm' : 'Ôn tập Flashcard'),
         actions: [
           IconButton(
+            tooltip: 'Thống kê ghi nhớ',
+            icon: const Icon(Icons.insights_outlined),
+            onPressed: _openStats,
+          ),
+          IconButton(
             tooltip: _mode == _Mode.quiz ? 'Quay lại Flashcard' : 'Làm trắc nghiệm',
             icon: Icon(_mode == _Mode.quiz ? Icons.replay : Icons.quiz_outlined),
             onPressed: () => setState(
@@ -78,6 +84,21 @@ class _QuizScreenState extends State<QuizScreen> {
       ),
       body: _mode == _Mode.quiz ? _buildQuiz(context) : _buildReview(context),
     );
+  }
+
+  /// FR-QUIZ-03: dashboard tiến trình ghi nhớ + điểm động lực.
+  Future<void> _openStats() async {
+    final stats = _repo.studyStats();
+    final wantReview = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => _StatsSheet(stats: stats),
+    );
+    if (wantReview == true) {
+      setState(() => _mode = _Mode.review);
+      _load();
+    }
   }
 
   // ---------- FR-QUIZ-02: Flashcard SRS ----------
@@ -286,3 +307,168 @@ class _QuizScreenState extends State<QuizScreen> {
 }
 
 enum _Mode { review, quiz }
+
+/// FR-QUIZ-03: biểu đồ tiến trình ghi nhớ theo 4 bậc SRS + điểm động lực.
+class _StatsSheet extends StatelessWidget {
+  const _StatsSheet({required this.stats});
+
+  final StudyStats stats;
+
+  static const _rungColors = [
+    Color(0xFFB7CBE0), // mới đánh dấu
+    AppTheme.primary,
+    AppTheme.tier2,
+    AppTheme.tier3,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.72),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Tiến trình ghi nhớ', style: theme.textTheme.titleMedium),
+              if (stats.tracked == 0) ...[
+                const SizedBox(height: 20),
+                const Center(
+                    child: Icon(Icons.psychology_outlined, size: 44, color: Color(0xFF9AA6B2))),
+                const SizedBox(height: 12),
+                Center(
+                  child: Text(
+                      'Chưa có thẻ nào được theo dõi.\nĐánh dấu "đã học" ở Lộ trình hoặc Tra cứu để '
+                      'bắt đầu chu kỳ ôn 1 → 3 → 7 ngày.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall),
+                ),
+              ] else ...[
+                const SizedBox(height: 16),
+                _pointsCard(theme),
+                const SizedBox(height: 20),
+                _ladder(theme),
+                const SizedBox(height: 20),
+                _footer(context, theme),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pointsCard(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text('${stats.points}',
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold, color: AppTheme.primary)),
+              const SizedBox(width: 8),
+              Text('điểm động lực', style: theme.textTheme.bodyMedium),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${stats.day1} thẻ ×2 · ${stats.day3} thẻ ×5 · ${stats.day7} thẻ ×10 · '
+            'streak ${stats.bestStreak} ×3',
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _ladder(ThemeData theme) {
+    final rungs = stats.ladder;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Phân bố ${stats.tracked} thẻ',
+            style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            height: 16,
+            child: Row(
+              children: [
+                for (var i = 0; i < rungs.length; i++)
+                  if (rungs[i].$2 > 0)
+                    Expanded(flex: rungs[i].$2, child: ColoredBox(color: _rungColors[i])),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        for (var i = 0; i < rungs.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Container(
+                    width: 12,
+                    height: 12,
+                    decoration:
+                        BoxDecoration(color: _rungColors[i], borderRadius: BorderRadius.circular(3))),
+                const SizedBox(width: 10),
+                Expanded(child: Text(rungs[i].$1, style: theme.textTheme.bodyMedium)),
+                Text('${rungs[i].$2}',
+                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _footer(BuildContext context, ThemeData theme) {
+    final longTerm = (stats.longTermShare * 100).round();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (stats.longTermShare > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text(
+              '$longTerm% thẻ đã ôn ít nhất một lần đang ở chu kỳ dài nhất (7 ngày).',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ),
+        if (stats.dueNow > 0)
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              icon: const Icon(Icons.school_outlined),
+              label: Text('Ôn ngay (${stats.dueNow} thẻ đến hạn)'),
+              onPressed: () => Navigator.pop(context, true),
+            ),
+          )
+        else
+          Row(
+            children: [
+              const Icon(Icons.task_alt, color: AppTheme.tier2),
+              const SizedBox(width: 8),
+              Text('Không còn thẻ đến hạn hôm nay.', style: theme.textTheme.bodyMedium),
+            ],
+          ),
+      ],
+    );
+  }
+}

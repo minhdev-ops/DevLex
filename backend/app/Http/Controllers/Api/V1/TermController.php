@@ -15,6 +15,21 @@ class TermController extends Controller
 {
     private const MAX_RESULTS = 20;
 
+    /**
+     * Cột cần cho việc chấm điểm + render kết quả. Không select * vì tier_2
+     * (giải thích dài) và source_attribution chỉ làm nặng thêm hàng nghìn dòng
+     * mà tìm kiếm phải nạp khi bảng có ~10.400 mục từ NIST.
+     */
+    private const SEARCH_COLUMNS = [
+        'id',
+        'tier_1_acronym',
+        'tier_1_full_name_en',
+        'tier_1_full_name_vi',
+        'tier_1_short_definition',
+        'tier_3_category_tags',
+        'tier_3_difficulty_level',
+    ];
+
     public function search(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -29,11 +44,12 @@ class TermController extends Controller
 
         // Alias được lưu dạng đẹp ("Triple Data Encryption Standard"), nên so khớp
         // ở chuẩn đã bỏ khoảng trắng/gạch nối ở cả hai phía.
-        $exactAlias = TermAlias::with('term')
+        $exactAlias = TermAlias::with('term:'.implode(',', self::SEARCH_COLUMNS))
             ->whereRaw($this->normalizeExpr('alias').' = ?', [$normalized])
             ->first();
 
         $candidates = Term::query()
+            ->select(self::SEARCH_COLUMNS)
             ->where(function ($sql) use ($like, $query) {
                 // So khớp ở dạng đã bỏ khoảng trắng/gạch nối, vì "access control list"
                 // và "access-control-list" phải tìm được cùng một mục từ.
@@ -67,6 +83,7 @@ class TermController extends Controller
         if ($wantFuzzy && $normalized !== '' && $results->count() < self::MAX_RESULTS) {
             $seen = $results->pluck('id')->all();
             $extra = Term::query()
+                ->select(self::SEARCH_COLUMNS)
                 ->whereNotIn('id', $seen)
                 ->where('tier_1_acronym', 'like', mb_substr($normalized, 0, 1).'%')
                 ->get()

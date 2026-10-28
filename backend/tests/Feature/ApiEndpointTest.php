@@ -6,6 +6,7 @@ use App\Models\Contribution;
 use App\Models\Term;
 use App\Models\TermAlias;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ApiEndpointTest extends TestCase
@@ -117,6 +118,23 @@ class ApiEndpointTest extends TestCase
         $first = $res->json('data.0');
         $this->assertSame('nist_triple-data-encryption-standard', $first['id']);
         $this->assertSame('Triple Data Encryption Standard', $first['matched_alias']['alias']);
+    }
+
+    public function test_search_only_loads_columns_it_needs(): void
+    {
+        // Tìm kiếm phải sống sót khi bảng có ~10.400 dòng NIST: không nạp
+        // tier_2/source_attribution của mọi dòng khớp chỉ để chấm điểm.
+        $this->term();
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->getJson('/api/v1/terms/search?q=API')->assertOk();
+        $sql = implode(' ', array_column(DB::getQueryLog(), 'query'));
+        DB::disableQueryLog();
+
+        $this->assertStringNotContainsString('tier_2_detailed_explanation', $sql);
+        $this->assertStringNotContainsString('source_attribution', $sql);
+        $this->assertStringContainsString('tier_1_full_name_en', $sql);
     }
 
     public function test_show_returns_three_tier_shape(): void

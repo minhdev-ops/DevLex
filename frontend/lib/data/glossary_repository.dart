@@ -1,4 +1,6 @@
 import '../core/fuzzy.dart';
+import '../core/sync_normalizer.dart';
+import 'api_client.dart';
 import 'local/glossary_database.dart';
 import 'models/term.dart';
 
@@ -30,6 +32,39 @@ class GlossaryRepository {
     _study = await GlossaryDatabase.instance.allStudyStates();
     _byId = {for (final t in _terms) t.id: t};
     _loaded = true;
+  }
+
+  ApiClient? _api;
+
+  /// Delta Sync (SRS §5 / #9): kéo các term thay đổi từ server về SQLite cục bộ,
+  /// cập nhật con trỏ last_pulled_at, rồi nạp lại cache in-memory.
+  Future<SyncOutcome> syncNow({ApiClient? api}) async {
+    final client = api ?? _api ?? (_api = ApiClient());
+    final cursor = await GlossaryDatabase.instance.getSyncCursor();
+
+    final payload = await client.syncDelta(cursor);
+    if (payload == null) {
+      return SyncOutcome.failed();
+    }
+
+    final result = SyncNormalizer.normalize(payload);
+    final terms = result.rows.map(Term.fromJson).toList();
+
+    final updated = terms.isEmpty ? 0 : await GlossaryDatabase.instance.upsertTerms(terms);
+    await GlossaryDatabase.instance.deleteTerms(result.deletedIds);
+    if (result.serverTimestamp > 0) {
+      await GlossaryDatabase.instance.setSyncCursor(result.serverTimestamp);
+    }
+
+    _loaded = false;
+    await warmUp();
+
+    return SyncOutcome(
+      ok: true,
+      updated: updated,
+      deleted: result.deletedIds.length,
+      serverTimestamp: result.serverTimestamp,
+    );
   }
 
   Term? termById(String id) => _byId[id];
@@ -198,4 +233,21 @@ class QuizQuestion {
   final Term term;
   final List<String> options;
   final int correctIndex;
+}
+
+/// Kết quả một lần Delta Sync.
+class SyncOutcome {
+  const SyncOutcome({
+    required this.ok,
+    this.updated = 0,
+    this.deleted = 0,
+    this.serverTimestamp = 0,
+  });
+
+  const SyncOutcome.failed() : ok = false, updated = 0, deleted = 0, serverTimestamp = 0;
+
+  final bool ok;
+  final int updated;
+  final int deleted;
+  final int serverTimestamp;
 }

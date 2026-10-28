@@ -16,11 +16,28 @@ class _SearchScreenState extends State<SearchScreen> {
   final _repo = GlossaryRepository.instance;
   List<SearchResult> _results = const [];
   bool _ready = false;
+  bool _syncing = false;
 
   @override
   void initState() {
     super.initState();
     _repo.warmUp().then((_) => setState(() => _ready = true));
+  }
+
+  /// Delta Sync: kéo cập nhật từ server về SQLite (khi có mạng).
+  Future<void> _sync() async {
+    if (_syncing) return;
+    setState(() => _syncing = true);
+    final res = await _repo.syncNow();
+    if (!mounted) return;
+    setState(() => _syncing = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(
+        res.ok
+            ? 'Đồng bộ xong: ${res.updated} term cập nhật, ${res.deleted} xóa.'
+            : 'Không kết nối được máy chủ — app vẫn chạy offline.',
+      ),
+    ));
   }
 
   @override
@@ -60,15 +77,34 @@ class _SearchScreenState extends State<SearchScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('IT Glossary',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold)),
-                  Text('Tra cứu thuật ngữ IT — 3 tầng tri thức, hoạt động offline',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          )),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('IT Glossary',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall
+                                    ?.copyWith(fontWeight: FontWeight.bold)),
+                            Text('Tra cứu thuật ngữ IT — 3 tầng tri thức, hoạt động offline',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    )),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Đồng bộ cập nhật từ máy chủ',
+                        onPressed: _ready && !_syncing ? _sync : null,
+                        icon: _syncing
+                            ? const SizedBox(
+                                width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.cloud_sync_outlined),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _controller,

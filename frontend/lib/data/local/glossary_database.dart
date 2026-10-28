@@ -14,7 +14,7 @@ class GlossaryDatabase {
   static final GlossaryDatabase instance = GlossaryDatabase._();
 
   static const _dbName = 'glossary.db';
-  static const _dbVersion = 2;
+  static const _dbVersion = 3;
   static const _seedAsset = 'assets/seed/terms.json';
 
   Database? _db;
@@ -77,6 +77,12 @@ class GlossaryDatabase {
             streak INTEGER NOT NULL DEFAULT 0
           )
         ''');
+        await db.execute('''
+          CREATE TABLE sync_meta(
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+          )
+        ''');
         await _seedFromAsset(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
@@ -89,6 +95,14 @@ class GlossaryDatabase {
               due_date TEXT,
               last_review TEXT,
               streak INTEGER NOT NULL DEFAULT 0
+            )
+          ''');
+        }
+        if (oldVersion < 3) {
+          await db.execute('''
+            CREATE TABLE sync_meta(
+              key TEXT PRIMARY KEY,
+              value TEXT NOT NULL
             )
           ''');
         }
@@ -244,5 +258,72 @@ class GlossaryDatabase {
           .map((e) => Attribution.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
+  }
+
+  /// Delta Sync: ghi đè các term cập nhật (ConflictAlgorithm.replace) + cập nhật
+  /// quan hệ prerequisite/related. Trả về số term đã ghi.
+  Future<int> upsertTerms(List<Term> terms) async {
+    final db = await database;
+    final batch = db.batch();
+    for (final t in terms) {
+      batch.insert('terms', _termToRow(t), conflictAlgorithm: ConflictAlgorithm.replace);
+      batch.delete('local_term_relationships',
+          where: 'child_id = ? AND relation_type = ?', whereArgs: [t.id, 'prerequisite']);
+      batch.delete('local_term_relationships',
+          where: 'parent_id = ? AND relation_type = ?', whereArgs: [t.id, 'related']);
+      for (final p in t.prerequisites) {
+        batch.insert('local_term_relationships',
+            {'parent_id': p, 'child_id': t.id, 'relation_type': 'prerequisite'},
+            conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+      for (final r in t.relatedTerms) {
+        batch.insert('local_term_relationships',
+            {'parent_id': t.id, 'child_id': r, 'relation_type': 'related'},
+            conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+    }
+    await batch.commit(noResult: true);
+    return terms.length;
+  }
+
+  Future<void> deleteTerms(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final db = await database;
+    final placeholders = List.generate(ids.length, (_) => '?').join(',');
+    await db.delete('terms', where: 'id IN ($placeholders)', whereArgs: ids);
+    await db.delete('local_term_relationships', where: 'parent_id IN ($placeholders)', whereArgs: ids);
+    await db.delete('local_term_relationships', where: 'child_id IN ($placeholders)', whereArgs: ids);
+  }
+
+  Map<String, Object?> _termToRow(Term t) => {
+        'id': t.id,
+        'acronym': t.acronym,
+        'full_name_en': t.fullNameEn,
+        'full_name_vi': t.fullNameVi,
+        'short_definition': t.shortDefinition,
+        'detailed_explanation': t.detailedExplanation,
+        'metaphor_analogy': t.metaphorAnalogy,
+        'diagram_url': t.diagramUrl,
+        'category_tags': jsonEncode(t.categoryTags),
+        'difficulty': t.difficulty,
+        'prerequisites': jsonEncode(t.prerequisites),
+        'related_terms': jsonEncode(t.relatedTerms),
+        'career': t.career,
+        'source_attribution': jsonEncode(t.attribution.map((a) => a.toJson()).toList()),
+      };
+
+  static const _cursorKey = 'last_pulled_at';
+
+  Future<int> getSyncCursor() async {
+    final db = await database;
+    final row = await db.query('sync_meta', where: 'key = ?', whereArgs: [_cursorKey], limit: 1);
+    if (row.isEmpty) return 0;
+    return int.tryParse(row.first['value'] as String) ?? 0;
+  }
+
+  Future<void> setSyncCursor(int epochSeconds) async {
+    final db = await database;
+    await db.insert('sync_meta', {'key': _cursorKey, 'value': epochSeconds.toString()},
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }

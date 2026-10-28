@@ -14,6 +14,26 @@ class ApiClient {
 
   Uri get _endpoint => Uri.parse('$baseUrl/api/v1/contributions');
 
+  Uri _syncEndpoint(int lastPulledAt) =>
+      Uri.parse('$baseUrl/api/v1/sync/delta?last_pulled_at=$lastPulledAt');
+
+  /// Delta Sync (SRS §5): lấy các term thay đổi sau `lastPulledAt` (epoch giây).
+  /// Trả payload gốc (SyncNormalizer sẽ chuẩn hóa); null nếu lỗi/mất mạng.
+  Future<Map<String, dynamic>?> syncDelta(int lastPulledAt) async {
+    try {
+      final res = await _client.get(
+        _syncEndpoint(lastPulledAt),
+        headers: {'Accept': 'application/json'},
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// FR-COMM-01: gửi đề xuất vào hàng chờ kiểm duyệt.
   Future<SubmitResult> submitContribution(Map<String, dynamic> body) async {
     try {

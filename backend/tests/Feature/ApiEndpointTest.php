@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Contribution;
 use App\Models\Term;
+use App\Models\TermAlias;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -62,12 +63,29 @@ class ApiEndpointTest extends TestCase
         $this->getJson('/api/v1/terms/search')->assertStatus(422);
     }
 
+    public function test_search_matches_multi_word_name_regardless_of_separators(): void
+    {
+        // Regression: "zero trust" từng trả về rỗng vì query được bỏ dấu cách
+        // còn cột tên thì giữ nguyên dấu cách.
+        $this->term([
+            'id' => 'nist_zta',
+            'tier_1_acronym' => 'ZTA',
+            'tier_1_full_name_en' => 'zero trust architecture',
+            'tier_1_full_name_vi' => 'kiến trúc zero trust',
+        ]);
+
+        foreach (['zero trust architecture', 'zero-trust-architecture', 'zero  trust architecture'] as $q) {
+            $ids = array_column($this->getJson('/api/v1/terms/search?q='.urlencode($q))->json('data'), 'id');
+            $this->assertContains('nist_zta', $ids, "truy vấn: {$q}");
+        }
+    }
+
     public function test_search_matching_an_alias_does_not_crash(): void
     {
         // Regression: query trùng alias từng gây 500 ("Property [alias] does not
         // exist on the Eloquent builder instance") khi gắn matched_alias.
         $term = $this->term(['id' => 'nist_2fa', 'tier_1_acronym' => 'Two-Factor Authentication']);
-        \App\Models\TermAlias::create([
+        TermAlias::create([
             'term_id' => $term->id,
             'alias' => '2FA',
             'naming_rule_note' => 'Viết tắt phổ biến',

@@ -23,15 +23,18 @@ class TermController extends Controller
 
         $query = trim($validated['q']);
         $normalized = mb_strtolower(preg_replace('/[\s\-_.]+/', '', $query));
+        $like = str_replace(['%', '_'], ['\%', '\_'], $normalized);
         $wantFuzzy = $request->boolean('fuzzy', true);
 
         $exactAlias = TermAlias::with('term')->whereRaw('LOWER(alias) = ?', [$normalized])->first();
 
         $candidates = Term::query()
-            ->where(function ($sql) use ($normalized, $query) {
-                $sql->whereRaw('LOWER(tier_1_acronym) LIKE ?', ["%{$normalized}%"])
-                    ->orWhereRaw('LOWER(tier_1_full_name_en) LIKE ?', ["%{$normalized}%"])
-                    ->orWhereRaw('LOWER(tier_1_full_name_vi) LIKE ?', ["%{$query}%"]);
+            ->where(function ($sql) use ($like, $query) {
+                // So khớp ở dạng đã bỏ khoảng trắng/gạch nối, vì "access control list"
+                // và "access-control-list" phải tìm được cùng một mục từ.
+                $sql->whereRaw($this->normalizeExpr('tier_1_acronym').' LIKE ?', ["%{$like}%"])
+                    ->orWhereRaw($this->normalizeExpr('tier_1_full_name_en').' LIKE ?', ["%{$like}%"])
+                    ->orWhereRaw('LOWER(tier_1_full_name_vi) LIKE ?', ['%'.str_replace(['%', '_'], ['\%', '\_'], mb_strtolower($query)).'%']);
             })
             ->get();
 
@@ -56,11 +59,11 @@ class TermController extends Controller
             ->take(self::MAX_RESULTS)
             ->values();
 
-        if ($wantFuzzy && $results->count() < self::MAX_RESULTS) {
+        if ($wantFuzzy && $normalized !== '' && $results->count() < self::MAX_RESULTS) {
             $seen = $results->pluck('id')->all();
             $extra = Term::query()
                 ->whereNotIn('id', $seen)
-                ->where('tier_1_acronym', 'like', $normalized[0] ?? '%')
+                ->where('tier_1_acronym', 'like', mb_substr($normalized, 0, 1).'%')
                 ->get()
                 ->map(function (Term $term) use ($normalized) {
                     $term->similarity = $this->similarity($normalized, $term);
@@ -90,6 +93,12 @@ class TermController extends Controller
         }
 
         return new TermDetailResource($term);
+    }
+
+    /** Biểu thức SQL bỏ dấu cách/gạch nối/dấu chấm để so khớp tự do theo tên viết tắt. */
+    private function normalizeExpr(string $column): string
+    {
+        return sprintf("LOWER(REPLACE(REPLACE(REPLACE(%s,'-',''),'.',''),' ',''))", $column);
     }
 
     private function similarity(string $needle, Term $term): float

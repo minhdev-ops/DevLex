@@ -99,7 +99,7 @@ class _DecoderScreenState extends State<DecoderScreen> {
           children: [
             Text(term.acronym,
                 style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            Text('${term.fullNameEn} — ${term.fullNameVi}',
+            Text(term.bilingualName,
                 style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(sheetContext).colorScheme.onSurfaceVariant,
                     )),

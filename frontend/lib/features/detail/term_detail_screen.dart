@@ -127,10 +127,18 @@ class _Tier1Body extends StatelessWidget {
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
         Text(term.fullNameEn, style: const TextStyle(fontWeight: FontWeight.w600)),
-        Text(term.fullNameVi,
+        if (term.needsTranslation)
+          Text(
+            'Chưa có bản dịch tiếng Việt — giữ nguyên cách gọi của nguồn (issue #1).',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
-                )),
+                  fontStyle: FontStyle.italic,
+                ))
+        else
+          Text(term.fullNameVi,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  )),
         const SizedBox(height: 10),
         Text(term.shortDefinition, style: Theme.of(context).textTheme.bodyLarge),
       ],

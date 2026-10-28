@@ -202,7 +202,7 @@ class _TermResultTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${term.fullNameEn} — ${term.fullNameVi}',
+              term.bilingualName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.w500),

@@ -87,6 +87,14 @@ class Term {
   /// nguồn dưới khóa này) -> để hiển thị "mấy nguồn xác nhận" khi offline.
   final String? concept;
 
+  /// Issue #1: mục từ nạp từ NIST/RFC/MDN/CNCF đang giữ nguyên tiếng Anh, chờ dịch.
+  bool get needsTranslation => fullNameVi.trim().isEmpty;
+
+  /// "Tên tiếng Anh — tên tiếng Việt", bỏ vế trống khi chưa dịch để không lộ dấu —.
+  String get bilingualName => needsTranslation
+      ? '$fullNameEn · chờ dịch'
+      : '$fullNameEn — $fullNameVi';
+
   factory Term.fromJson(Map<String, dynamic> json) => Term(
         id: json['id'] as String,
         acronym: json['acronym'] as String,

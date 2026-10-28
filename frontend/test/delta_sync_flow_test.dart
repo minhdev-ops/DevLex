@@ -138,5 +138,7 @@ void main() {
     expect(find.textContaining('Mức tin cậy'), findsOneWidget);
     expect(find.textContaining('2 nguồn độc lập'), findsOneWidget);
     expect(find.textContaining('97/100'), findsWidgets);
+    // Dòng sync về chưa dịch -> báo trạng thái chứ không để tên tiếng Việt trống.
+    expect(find.textContaining('Chưa có bản dịch tiếng Việt'), findsOneWidget);
   });
 }

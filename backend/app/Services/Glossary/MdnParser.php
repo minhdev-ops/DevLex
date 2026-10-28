@@ -20,7 +20,7 @@ class MdnParser
             return null;
         }
 
-        $title = trim((string) ($fm['title'] ?? ''));
+        $title = TermText::asText($fm['title'] ?? '');
         if ($title === '' || trim($body) === '') {
             return null;
         }

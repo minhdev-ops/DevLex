@@ -17,12 +17,12 @@ class CncfParser
     {
         [$fm, $body] = TermText::splitFrontMatter($doc);
 
-        $status = trim((string) ($fm['status'] ?? ''));
+        $status = TermText::asText($fm['status'] ?? '');
         if ($status !== '' && strtolower($status) !== 'completed') {
             return null;
         }
 
-        $title = trim((string) ($fm['title'] ?? ''));
+        $title = TermText::asText($fm['title'] ?? '');
         if ($title === '' || trim($body) === '') {
             return null;
         }
@@ -34,10 +34,12 @@ class CncfParser
 
         $detailed = TermText::clean($body);
 
-        $tags = is_array($fm['tags'] ?? null) ? array_values(array_filter($fm['tags'])) : [];
+        $tags = is_array($fm['tags'] ?? null)
+            ? array_values(array_filter(array_map(TermText::asText(...), $fm['tags'])))
+            : [];
         $tags[] = 'cloud-native';
 
-        $category = strtolower(trim((string) ($fm['category'] ?? '')));
+        $category = strtolower(TermText::asText($fm['category'] ?? ''));
         $difficulty = in_array('fundamental', $tags, true) ? 'Beginner' : 'Intermediate';
         $career = $category === 'technology' ? 'devops' : null;
 

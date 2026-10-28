@@ -26,6 +26,16 @@ final class TermText
         return [is_array($fm) ? $fm : [], $m[2]];
     }
 
+    /** Ép một giá trị front-matter YAML về chuỗi: mảng -> phần tử đầu, null -> ''. */
+    public static function asText(mixed $value): string
+    {
+        if (is_array($value)) {
+            $value = reset($value);
+        }
+
+        return is_scalar($value) ? trim((string) $value) : '';
+    }
+
     /** Bỏ metadata, chỉ giữ chữ thường + ký tự cơ bản để tạo id bền vững. */
     public static function slugify(string $value, int $max = 30): string
     {

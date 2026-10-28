@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreContributionRequest;
 use App\Models\Contribution;
-use App\Models\Term;
+use App\Services\Glossary\ContributionApproval;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -47,50 +47,27 @@ class ContributionController extends Controller
      * FR-COMM-02/03: duyệt đóng góp -> tạo term mới (hoặc cộng dồn vào term trùng acronym),
      * ghi công contributor vào source_attribution.
      */
-    public function approve(Request $request, string $id): JsonResponse
+    public function approve(Request $request, string $id, ContributionApproval $approval): JsonResponse
     {
         $contribution = Contribution::findOrFail($id);
+        $alreadyReviewed = $contribution->status === Contribution::STATUS_APPROVED;
 
-        if ($contribution->status === Contribution::STATUS_APPROVED) {
+        $term = $approval->approve($contribution, $request->user()?->id);
+
+        if ($alreadyReviewed) {
             return response()->json(['message' => 'Đề xuất đã được duyệt trước đó.'], 200);
         }
 
-        $existing = Term::query()
-            ->whereRaw('LOWER(tier_1_acronym) = ?', [strtolower($contribution->tier_1_acronym)])
-            ->first();
-
-        if ($existing) {
-            $existing->source_attribution = Contribution::mergeAttribution(
-                $existing->source_attribution ?? [],
-                $contribution->contributor_name,
-            );
-            $existing->save();
-            $termId = $existing->id;
-        } else {
-            $termId = $contribution->candidateTermId();
-            Term::query()->updateOrCreate(['id' => $termId], $contribution->toTermRow($termId));
-        }
-
-        $contribution->update([
-            'status' => Contribution::STATUS_APPROVED,
-            'term_id' => $termId,
-            'reviewed_by' => $request->user()?->id,
-        ]);
-
-        return response()->json(['data' => $contribution, 'term_id' => $termId]);
+        return response()->json(['data' => $contribution->refresh(), 'term_id' => $term->id]);
     }
 
     /** FR-COMM-02: từ chối kèm ghi chú. */
-    public function reject(Request $request, string $id): JsonResponse
+    public function reject(Request $request, string $id, ContributionApproval $approval): JsonResponse
     {
         $validated = $request->validate(['review_note' => ['required', 'string', 'max:2000']]);
 
         $contribution = Contribution::findOrFail($id);
-        $contribution->update([
-            'status' => Contribution::STATUS_REJECTED,
-            'review_note' => $validated['review_note'],
-            'reviewed_by' => $request->user()?->id,
-        ]);
+        $approval->reject($contribution, $validated['review_note'], $request->user()?->id);
 
         return response()->json(['data' => $contribution]);
     }

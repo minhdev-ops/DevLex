@@ -26,7 +26,12 @@ class GlossaryRepository {
   Map<String, Term> _byId = const {};
   Map<String, List<Term>> _byConcept = const {};
   Map<String, StudyState> _study = const {};
+  List<_SearchKeys> _keys = const [];
+  Map<String, Term> _byAcronym = const {};
   bool _loaded = false;
+
+  /// Ngưỡng điểm thấp nhất để một mục từ xuất hiện trong kết quả.
+  static const double _minScore = 0.55;
 
   Future<void> warmUp() async {
     if (_loaded) return;
@@ -41,7 +46,22 @@ class GlossaryRepository {
       byConcept.putIfAbsent(key, () => []).add(t);
     }
     _byConcept = byConcept;
+    _indexKeys();
     _loaded = true;
+  }
+
+  /// Chuẩn hóa khóa tìm kiếm một lần cho mỗi mục từ thay vì mỗi lần gõ: với kho
+  /// >6.000 dòng, chi phí normalize theo từng query là phần chậm nhất.
+  void _indexKeys() {
+    _keys = [
+      for (final t in _terms)
+        _SearchKeys(normalizeQuery(t.acronym), normalizeQuery(t.fullNameEn), normalizeQuery(t.fullNameVi)),
+    ];
+    final byAcronym = <String, Term>{};
+    for (var i = 0; i < _terms.length; i++) {
+      byAcronym.putIfAbsent(_keys[i].acronym, () => _terms[i]);
+    }
+    _byAcronym = byAcronym;
   }
 
   ApiClient? _api;
@@ -141,23 +161,25 @@ class GlossaryRepository {
     final alias = _aliases[needle];
     final scored = <SearchResult>[];
 
-    for (final term in _terms) {
+    for (var i = 0; i < _terms.length; i++) {
+      final term = _terms[i];
+      final keys = _keys[i];
       var best = 0.0;
-      for (final field in [term.acronym, term.fullNameEn]) {
-        final s = similarity(needle, normalizeQuery(field));
+      for (final field in [keys.acronym, keys.en, keys.vi]) {
+        final s = similarity(needle, field, cutoff: _minScore);
         if (s > best) best = s;
+        if (best >= 1) break;
       }
-      final viScore = similarity(needle, normalizeQuery(term.fullNameVi));
-      if (viScore > best) best = viScore;
 
-      if (alias != null && alias.termId == term.id && best < 1) {
+      final isAlias = alias != null && alias.termId == term.id;
+      if (isAlias && best < 1) {
         best = 1;
       }
-      if (best >= 0.55) {
+      if (best >= _minScore) {
         scored.add(SearchResult(
           term: term,
           similarity: best,
-          matchedAlias: alias != null && alias.termId == term.id ? alias : null,
+          matchedAlias: isAlias ? alias : null,
         ));
       }
     }
@@ -200,10 +222,7 @@ class GlossaryRepository {
     final normalized = normalizeQuery(token);
     final alias = _aliases[normalized];
     if (alias != null) return _byId[alias.termId];
-    for (final t in _terms) {
-      if (normalizeQuery(t.acronym) == normalized) return t;
-    }
-    return null;
+    return _byAcronym[normalized];
   }
 
   static const careers = <String, String>{
@@ -330,6 +349,16 @@ class GlossaryRepository {
 
   /// FR-QUIZ-03: toàn bộ số liệu cho dashboard tiến trình ghi nhớ.
   StudyStats studyStats() => StudyStats.from(_study.values);
+}
+
+/// Ba khóa đã chuẩn hóa của một mục từ, dựng một lần khi nạp kho để mỗi lần gõ
+/// chỉ còn so sánh thay vì normalize lại toàn bộ danh sách.
+class _SearchKeys {
+  const _SearchKeys(this.acronym, this.en, this.vi);
+
+  final String acronym;
+  final String en;
+  final String vi;
 }
 
 class QuizQuestion {

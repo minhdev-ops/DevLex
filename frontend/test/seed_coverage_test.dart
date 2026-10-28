@@ -15,7 +15,10 @@ void main() {
   test('phủ đủ 4 career theo SRS 2.2 (mỗi career >= 5 thuật ngữ)', () {
     final byCareer = <String, int>{};
     for (final t in terms) {
-      final career = t['career'] as String;
+      // Phần lớn mục từ quệt từ nguồn là tham chiếu thuần, không gắn nghề;
+      // SRS chỉ yêu cầu 4 lộ trình có đủ thuật ngữ.
+      final career = t['career'] as String?;
+      if (career == null) continue;
       byCareer[career] = (byCareer[career] ?? 0) + 1;
     }
     for (final career in ['frontend', 'backend', 'devops', 'project_comm']) {

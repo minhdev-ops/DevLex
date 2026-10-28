@@ -11,6 +11,8 @@ import 'package:it_glossary/data/local/glossary_database.dart';
 import 'package:it_glossary/features/detail/term_detail_screen.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'support/clear_packaged_corpus.dart';
+
 /// Một dòng delta sync đúng hình API (/api/v1/sync/delta).
 Map<String, dynamic> apiRow({
   required String id,
@@ -80,11 +82,12 @@ void main() {
 
   late final Directory dir;
 
-  setUpAll(() {
+  setUpAll(() async {
     dir = Directory.systemTemp.createTempSync('glossary_sync_test');
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     databaseFactoryFfi.setDatabasesPath(dir.path);
+    await clearPackagedCorpus();
   });
 
   tearDownAll(() async {

@@ -22,6 +22,18 @@ void main() {
     test('gõ sai nhẹ vẫn đạt điểm cao (Levenshtein)', () {
       expect(similarity('kubernets', 'kubernetes'), greaterThanOrEqualTo(0.8));
     });
+
+    test('cutoff bỏ ứng viên không thể đạt ngưỡng mà không dựng bảng', () {
+      // 'acl' vs chuỗi 17 ký tự: cận trên của điểm đã là 0.18, dưới ngưỡng 0.55.
+      expect(similarity('acl', 'accesscontrollist'), lessThan(0.55));
+      expect(similarity('acl', 'accesscontrollist', cutoff: 0.55), 0);
+    });
+
+    test('cutoff không được cắt mất ứng viên xứng đáng xuất hiện', () {
+      expect(similarity('kubernets', 'kubernetes', cutoff: 0.55), greaterThanOrEqualTo(0.8));
+      expect(similarity('firewl', 'firewall', cutoff: 0.55), greaterThan(0.55));
+      expect(similarity('api', 'api', cutoff: 0.55), 1.0);
+    });
   });
 
   test('levenshtein cơ bản', () {

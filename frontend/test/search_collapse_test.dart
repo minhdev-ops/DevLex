@@ -9,6 +9,8 @@ import 'package:it_glossary/data/glossary_repository.dart';
 import 'package:it_glossary/data/local/glossary_database.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'support/clear_packaged_corpus.dart';
+
 /// Một mục từ cùng khái niệm nhưng khác nguồn: server giữ hai dòng riêng,
 /// người dùng chỉ muốn thấy một kết quả.
 Map<String, dynamic> row({
@@ -58,6 +60,9 @@ void main() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     databaseFactoryFfi.setDatabasesPath(dir.path);
+
+    // Không để kho đóng gói thật lẫn vào các so sánh về số nguồn gộp.
+    await clearPackagedCorpus();
 
     final rows = <Map<String, dynamic>>[
       row(id: 'mdn_api', acronym: 'API', name: 'Application Programming Interface',

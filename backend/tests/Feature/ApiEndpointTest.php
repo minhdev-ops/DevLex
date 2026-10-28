@@ -157,6 +157,69 @@ class ApiEndpointTest extends TestCase
         $this->getJson('/api/v1/sync/delta')->assertStatus(422);
     }
 
+    public function test_delta_sync_pages_through_rows_with_identical_timestamp(): void
+    {
+        // Một lô import ghi hàng nghìn dòng cùng updated_at: pagination phải
+        // đi tiếp được bằng cặp (updated_at, id), không lặp lại hay bỏ sót dòng.
+        foreach (['t_a', 't_b', 't_c'] as $i => $id) {
+            $this->term([
+                'id' => $id,
+                'tier_1_acronym' => 'AC'.$i,
+                'tier_1_full_name_en' => 'batched term '.$i,
+            ]);
+        }
+        $stamp = now()->subMinute();
+        Term::query()->update(['updated_at' => $stamp]);
+
+        $first = $this->getJson('/api/v1/sync/delta?last_pulled_at=0&page_size=2');
+        $first->assertOk()->assertJsonPath('has_more', true);
+        $this->assertCount(2, $first->json('changes.updated'));
+        $cursor = $first->json('next_cursor');
+        $this->assertNotNull($cursor);
+
+        $second = $this->getJson('/api/v1/sync/delta?last_pulled_at=0&page_size=2&cursor='.$cursor);
+        $second->assertOk()->assertJsonPath('has_more', false);
+        $this->assertNull($second->json('next_cursor'));
+        $this->assertSame(
+            ['t_c'],
+            array_column($second->json('changes.updated'), 'id'),
+            'cursor phải trả đúng phần còn lại, không trùng trang đầu'
+        );
+    }
+
+    public function test_delta_sync_ignores_a_garbage_cursor(): void
+    {
+        $this->term();
+
+        $res = $this->getJson('/api/v1/sync/delta?last_pulled_at=0&cursor=not-base64-json');
+        $res->assertOk();
+        $this->assertContains('mdn_api', array_column($res->json('changes.updated'), 'id'));
+    }
+
+    public function test_delta_sync_page_size_is_capped(): void
+    {
+        $this->getJson('/api/v1/sync/delta?last_pulled_at=0&page_size=100000')->assertStatus(422);
+    }
+
+    public function test_detail_response_does_not_batch_query_siblings(): void
+    {
+        // Resource dùng cho delta sync không được phát sinh query per-row (N+1)
+        // khi bảng có hàng chục nghìn dòng; context_group chỉ có ở chi tiết.
+        $this->term(['id' => 'rfc_acl', 'tier_1_full_name_en' => 'access control list']);
+        $this->term(['id' => 'mdn_acl', 'tier_1_full_name_en' => 'access control list']);
+
+        $res = $this->getJson('/api/v1/sync/delta?last_pulled_at=0');
+        $res->assertOk();
+        foreach ($res->json('changes.updated') as $row) {
+            $this->assertArrayNotHasKey('context_group', $row);
+            $this->assertArrayNotHasKey('trust', $row);
+        }
+
+        $this->getJson('/api/v1/terms/rfc_acl')
+            ->assertOk()
+            ->assertJsonPath('data.context_group.concept', null);
+    }
+
     public function test_contribution_store_then_approve_creates_term(): void
     {
         $payload = [

@@ -22,7 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     // Issue #8: NIST/RFC là trang HTML/text nên không có webhook -> nạp lại định kỳ.
+    // NIST ~10.400 slug, mỗi slug một request (~1 req/s) nên chạy tuần, không chạy
+    // hằng ngày: một lần quét mất hàng giờ và không có gì mới mỗi đêm.
     ->withSchedule(function (Schedule $schedule): void {
-        $schedule->command('glossary:import --source=nist')->dailyAt('03:00')->withoutOverlapping();
+        $schedule->command('glossary:import --source=nist')->weeklyOn(3, '03:00')->withoutOverlapping();
         $schedule->command('glossary:import --source=rfc4949')->weeklyOn(1, '03:30')->withoutOverlapping();
     })->create();

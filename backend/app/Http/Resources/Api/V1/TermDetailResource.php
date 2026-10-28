@@ -2,22 +2,18 @@
 
 namespace App\Http\Resources\Api\V1;
 
-use App\Models\Term;
-use App\Services\Glossary\SourceRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class TermDetailResource extends JsonResource
 {
+    /**
+     * Delta sync render hàng nghìn dòng bằng resource này nên không được
+     * phát sinh query thêm ở đây. Khối `context_group` / `trust` (đọc các mục từ
+     * cùng khái niệm) chỉ tính cho chi tiết một mục từ — xem TermController::show.
+     */
     public function toArray(Request $request): array
     {
-        $siblings = $this->resource->siblingContexts();
-        $agreeing = array_values(array_unique(array_filter(array_merge(
-            array_column($this->source_attribution ?? [], 'source'),
-            $siblings->pluck('source_attribution.0.source')->filter()->all()
-        ))));
-        $baseConfidence = (int) ($this->source_attribution[0]['confidence'] ?? 50);
-
         return [
             'id' => $this->id,
             'tier_1' => [
@@ -38,25 +34,7 @@ class TermDetailResource extends JsonResource
                 'related_terms' => $this->tier_3_related_terms ?? [],
             ],
             'source_attribution' => $this->source_attribution,
-            // Cùng khái niệm nhưng mỗi nguồn một ngữ cảnh (SRS mục 4, issue #8 giai đoạn 2).
-            'context_group' => [
-                'concept' => $this->concept,
-                'contexts' => $siblings->map(fn (Term $sibling) => [
-                    'id' => $sibling->id,
-                    'source' => $sibling->source_attribution[0]['source'] ?? null,
-                    'authority_tier' => $sibling->source_attribution[0]['authority_tier'] ?? null,
-                    'confidence' => $sibling->source_attribution[0]['confidence'] ?? null,
-                    'short_definition' => $sibling->tier_1_short_definition,
-                    'author_link' => $sibling->source_attribution[0]['author_link'] ?? null,
-                ])->values(),
-            ],
-            'trust' => [
-                'authority_tier' => $this->source_attribution[0]['authority_tier'] ?? null,
-                'base_confidence' => $baseConfidence,
-                // Số nguồn độc lập cùng định nghĩa khái niệm này (issue #8: dữ liệu uy tín).
-                'agreeing_sources' => $agreeing,
-                'corroborated_confidence' => SourceRegistry::corroborate($baseConfidence, count($agreeing)),
-            ],
+            'roadmap_career' => $this->roadmap_career,
         ];
     }
 }

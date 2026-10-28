@@ -36,24 +36,56 @@ class GlossaryRepository {
 
   ApiClient? _api;
 
+  /// Guard: 500 dòng/lô * 200 lô = 100k bản ghi, đủ cho toàn bộ khối từ điển.
+  static const int _maxSyncPages = 200;
+
   /// Delta Sync (SRS §5 / #9): kéo các term thay đổi từ server về SQLite cục bộ,
   /// cập nhật con trỏ last_pulled_at, rồi nạp lại cache in-memory.
+  /// Server trả theo lô nên phải lặp cho tới khi hết `next_cursor`.
   Future<SyncOutcome> syncNow({ApiClient? api}) async {
     final client = api ?? _api ?? (_api = ApiClient());
-    final cursor = await GlossaryDatabase.instance.getSyncCursor();
+    final since = await GlossaryDatabase.instance.getSyncCursor();
 
-    final payload = await client.syncDelta(cursor);
-    if (payload == null) {
-      return SyncOutcome.failed();
+    var updated = 0;
+    var deleted = 0;
+    var serverTimestamp = 0;
+    String? pageCursor;
+
+    for (var page = 0; page < _maxSyncPages; page++) {
+      final payload = await client.syncDelta(since, cursor: pageCursor);
+      if (payload == null) {
+        // Mất mạng giữa chừng: các lô đã ghi vẫn còn nguyên (upsert idempotent),
+        // con trỏ chưa dịch nên lần sau kéo lại từ đầu.
+        return page == 0 ? SyncOutcome.failed() : _done(updated, deleted, 0);
+      }
+
+      final result = SyncNormalizer.normalize(payload);
+      final terms = result.rows.map(Term.fromJson).toList();
+      if (terms.isNotEmpty) {
+        updated += await GlossaryDatabase.instance.upsertTerms(terms);
+      }
+      if (result.deletedIds.isNotEmpty) {
+        await GlossaryDatabase.instance.deleteTerms(result.deletedIds);
+        deleted += result.deletedIds.length;
+      }
+      // Mốc của lô ĐẦU tiên: các lô sau có updated_at lớn hơn, lấy mốc sau sẽ
+      // bỏ sót bản ghi sửa đổi xen giữa hai lô.
+      if (page == 0) serverTimestamp = result.serverTimestamp;
+
+      if (!result.hasMore || result.nextCursor == null) {
+        return _done(updated, deleted, serverTimestamp);
+      }
+      pageCursor = result.nextCursor;
     }
 
-    final result = SyncNormalizer.normalize(payload);
-    final terms = result.rows.map(Term.fromJson).toList();
+    // hết @_maxSyncPages mà server vẫn còn lô -> chưa sync xong, giữ con trỏ cũ
+    // để lần sau kéo tiếp từ đầu, không bỏ sót bản ghi.
+    return _done(updated, deleted, 0);
+  }
 
-    final updated = terms.isEmpty ? 0 : await GlossaryDatabase.instance.upsertTerms(terms);
-    await GlossaryDatabase.instance.deleteTerms(result.deletedIds);
-    if (result.serverTimestamp > 0) {
-      await GlossaryDatabase.instance.setSyncCursor(result.serverTimestamp);
+  Future<SyncOutcome> _done(int updated, int deleted, int serverTimestamp) async {
+    if (serverTimestamp > 0) {
+      await GlossaryDatabase.instance.setSyncCursor(serverTimestamp);
     }
 
     _loaded = false;
@@ -62,8 +94,8 @@ class GlossaryRepository {
     return SyncOutcome(
       ok: true,
       updated: updated,
-      deleted: result.deletedIds.length,
-      serverTimestamp: result.serverTimestamp,
+      deleted: deleted,
+      serverTimestamp: serverTimestamp,
     );
   }
 

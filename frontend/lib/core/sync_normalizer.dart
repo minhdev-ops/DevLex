@@ -5,6 +5,8 @@ class SyncResult {
     required this.rows,
     required this.deletedIds,
     required this.serverTimestamp,
+    this.hasMore = false,
+    this.nextCursor,
   });
 
   /// Các term đã cập nhật, sẵn sàng upsert vào SQLite.
@@ -15,6 +17,12 @@ class SyncResult {
 
   /// Mốc thời gian server -> lưu làm last_pulled_at cho lần sync kế.
   final int serverTimestamp;
+
+  /// Server còn lô tiếp theo cho cùng một lần sync (keyset pagination).
+  final bool hasMore;
+
+  /// Con trỏ mờ (opaque) dùng để lấy trang kế; null khi đã hết.
+  final String? nextCursor;
 }
 
 class SyncNormalizer {
@@ -29,6 +37,8 @@ class SyncNormalizer {
       rows: updated.whereType<Map>().map((e) => _toLocalRow(e.cast<String, dynamic>())).toList(growable: false),
       deletedIds: deleted.map((e) => e.toString()).toList(growable: false),
       serverTimestamp: (delta['sync_timestamp'] as num?)?.toInt() ?? 0,
+      hasMore: delta['has_more'] == true,
+      nextCursor: delta['next_cursor'] as String?,
     );
   }
 

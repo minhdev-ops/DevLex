@@ -56,6 +56,19 @@ void main() {
       expect(r.rows, isEmpty);
       expect(r.deletedIds, isEmpty);
       expect(r.serverTimestamp, 0);
+      expect(r.hasMore, isFalse);
+      expect(r.nextCursor, isNull);
+    });
+
+    test('đọc con trỏ lô (keyset pagination) từ payload', () {
+      final paged = <String, dynamic>{
+        ...sample,
+        'has_more': true,
+        'next_cursor': 'eyJ0IjoxNzMwMDAwMDAwLCJpIjoibWRfYXBpIn0=',
+      };
+      final r = SyncNormalizer.normalize(paged);
+      expect(r.hasMore, isTrue);
+      expect(r.nextCursor, 'eyJ0IjoxNzMwMDAwMDAwLCJpIjoibWRfYXBpIn0=');
     });
   });
 }

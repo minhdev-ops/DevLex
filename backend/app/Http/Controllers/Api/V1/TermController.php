@@ -7,6 +7,7 @@ use App\Http\Resources\Api\V1\TermDetailResource;
 use App\Http\Resources\Api\V1\TermSearchResource;
 use App\Models\Term;
 use App\Models\TermAlias;
+use App\Services\Glossary\TermContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -88,7 +89,7 @@ class TermController extends Controller
         ]);
     }
 
-    public function show(string $id): TermDetailResource|JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
         $term = Term::find($id);
 
@@ -96,7 +97,15 @@ class TermController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Term not found'], 404);
         }
 
-        return new TermDetailResource($term);
+        // `additional()` của JsonResource chỉ gộp được vào response khi trả về
+        // trực tiếp từ route; ở đây ta ghép mảng để giữ cùng một hình dạng payload.
+        return response()->json([
+            'status' => 'success',
+            'data' => array_merge(
+                (new TermDetailResource($term))->toArray($request),
+                TermContext::payload($term)
+            ),
+        ]);
     }
 
     /** Biểu thức SQL bỏ dấu cách/gạch nối/dấu chấm để so khớp tự do theo tên viết tắt. */

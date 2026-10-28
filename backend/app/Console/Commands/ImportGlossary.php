@@ -19,8 +19,8 @@ class ImportGlossary extends Command
     protected $signature = 'glossary:import
         {--source=all : mdn | cncf | nist | rfc4949 | all}
         {--limit=0 : giới hạn số term mỗi nguồn (0 = toàn bộ)}
-        {--pages=3 : số trang danh mục NIST để khám phá slug}
-        {--chunk=0 : NIST: ghi DB sau mỗi N slug (0 = gộp hết rồi ghi một lần)}
+        {--pages=110 : số trang danh mục NIST để khám phá slug (110 trang ~ 10.400 slug)}
+        {--chunk=500 : NIST: ghi DB sau mỗi N slug (0 = gộp hết rồi ghi một lần)}
         {--dry-run : chỉ fetch+parse+xuất JSON ra storage, không ghi DB}';
 
     protected $description = 'Ingest thuật ngữ uy tín (NIST + MDN + CNCF + RFC 4949) vào Unified Schema kèm chấm điểm nguồn';

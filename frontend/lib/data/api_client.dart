@@ -14,15 +14,22 @@ class ApiClient {
 
   Uri get _endpoint => Uri.parse('$baseUrl/api/v1/contributions');
 
-  Uri _syncEndpoint(int lastPulledAt) =>
-      Uri.parse('$baseUrl/api/v1/sync/delta?last_pulled_at=$lastPulledAt');
+  Uri _syncEndpoint(int lastPulledAt, {String? cursor}) {
+    final params = <String, String>{
+      'last_pulled_at': '$lastPulledAt',
+      'page_size': '500',
+      'cursor': ?cursor,
+    };
+    return Uri.parse('$baseUrl/api/v1/sync/delta').replace(queryParameters: params);
+  }
 
   /// Delta Sync (SRS §5): lấy các term thay đổi sau `lastPulledAt` (epoch giây).
+  /// Server trả theo lô; `cursor` (next_cursor từ lô trước) lấy lô kế tiếp.
   /// Trả payload gốc (SyncNormalizer sẽ chuẩn hóa); null nếu lỗi/mất mạng.
-  Future<Map<String, dynamic>?> syncDelta(int lastPulledAt) async {
+  Future<Map<String, dynamic>?> syncDelta(int lastPulledAt, {String? cursor}) async {
     try {
       final res = await _client.get(
-        _syncEndpoint(lastPulledAt),
+        _syncEndpoint(lastPulledAt, cursor: cursor),
         headers: {'Accept': 'application/json'},
       );
       if (res.statusCode == 200) {

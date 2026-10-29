@@ -41,7 +41,9 @@ class ContextDecoder {
   /// thay vì crash, để ứng dụng không bao giờ nhận payload không kiểm soát.
   final int maxChars;
 
-  static final _tokenPattern = RegExp(r'[A-Za-z0-9/]+|[^A-Za-z0-9/]+');
+  /// Token là cả một từ Unicode: cắt theo [A-Za-z] sẽ biến "Cần" thành "C" và
+  /// "n", rồi highlight nhầm các acronym một ký tự trong câu tiếng Việt.
+  static final _tokenPattern = RegExp(r'[\p{L}\p{N}/]+|[^\p{L}\p{N}/]+', unicode: true);
 
   DecodeResult decode(String raw, String? Function(String token) lookup) {
     final truncated = raw.length > maxChars;

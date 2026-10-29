@@ -28,6 +28,17 @@ void main() {
       expect(result.tokens.every((t) => !t.isMatch), isTrue);
     });
 
+    test('từ tiếng Việt có dấu giữ nguyên một token, không lộ chữ cái đơn', () {
+      final result = decoder.decode(
+        'Cần tuyển vị trí',
+        lookupFor({'C', 'n', 'v', 't', 'u', 'bi'}),
+      );
+
+      expect(result.matchCount, 0, reason: '"Cần" không được cắt thành "C" + "n"');
+      expect(result.tokens.map((t) => t.text).first, 'Cần');
+      expect(result.tokens.map((t) => t.text).join(), 'Cần tuyển vị trí');
+    });
+
     test('văn bản đúng ngưỡng 10.000 ký tự không bị cắt', () {
       final text = 'a' * 10000;
       final result = decoder.decode(text, lookupFor({'a'}));

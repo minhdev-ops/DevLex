@@ -167,8 +167,10 @@ class _DecoderScreenState extends State<DecoderScreen> {
               children: [
                 Icon(Icons.tag, size: 16, color: theme.colorScheme.primary),
                 const SizedBox(width: 6),
-                Text('Tìm thấy ${_found.length} thuật ngữ — chạm từ được highlight để xem nhanh',
-                    style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary)),
+                Expanded(
+                  child: Text('Tìm thấy ${_found.length} thuật ngữ — chạm từ được highlight để xem nhanh',
+                      style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary)),
+                ),
               ],
             ),
             const SizedBox(height: 12),

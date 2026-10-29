@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_theme.dart';
 import '../../data/glossary_repository.dart';
 import '../../data/models/term.dart';
 
-class TermDetailScreen extends StatelessWidget {
+class TermDetailScreen extends StatefulWidget {
   const TermDetailScreen({super.key, required this.termId});
 
   final String termId;
 
   @override
+  State<TermDetailScreen> createState() => _TermDetailScreenState();
+}
+
+class _TermDetailScreenState extends State<TermDetailScreen> {
+  final _repo = GlossaryRepository.instance;
+
+  @override
   Widget build(BuildContext context) {
-    final term = GlossaryRepository.instance.termById(termId);
+    final term = _repo.termById(widget.termId);
 
     if (term == null) {
       return Scaffold(
@@ -26,12 +34,29 @@ class TermDetailScreen extends StatelessWidget {
     final trusted = term.attribution.any((a) => a.isVerified) || maxConfidence >= 90;
     // SRS mục 4: một khái niệm có thể được nhiều nguồn định nghĩa -> cộng hưởng
     // điểm tin cậy, tính offline từ khóa concept mà delta sync mang về.
-    final trust = GlossaryRepository.instance.trustFor(term);
+    final trust = _repo.trustFor(term);
+    final learned = _repo.cachedStudyState(term.id).learned;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(term.acronym),
         actions: [
+          IconButton(
+            icon: Icon(learned ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: learned ? AppTheme.tier2 : null),
+            tooltip: learned ? 'Bỏ đánh dấu đã học' : 'Đánh dấu đã học',
+            onPressed: () async {
+              await _repo.toggleLearned(term.id);
+              if (!context.mounted) return;
+              setState(() {});
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(learned
+                    ? 'Đã bỏ đánh dấu ${term.acronym}.'
+                    : 'Đã thêm ${term.acronym} vào hàng chờ ôn tập.'),
+                duration: const Duration(seconds: 2),
+              ));
+            },
+          ),
           if (trusted)
             Padding(
               padding: const EdgeInsets.only(right: 12),
@@ -381,7 +406,13 @@ class _AttributionCard extends StatelessWidget {
                                 )),
                       if (a.authorLink.isNotEmpty)
                         InkWell(
-                          onTap: () {},
+                          onTap: () async {
+                            final uri = Uri.tryParse(a.authorLink);
+                            if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) {
+                              return;
+                            }
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          },
                           child: Text('Xem nguồn gốc:  ${a.authorLink}',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Theme.of(context).colorScheme.primary,

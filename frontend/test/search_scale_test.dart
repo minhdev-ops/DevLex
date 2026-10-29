@@ -1,8 +1,11 @@
 import 'dart:io';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:it_glossary/data/glossary_repository.dart';
 import 'package:it_glossary/data/local/glossary_database.dart';
+import 'package:it_glossary/features/detail/term_detail_screen.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// FR-GLOS-01 hứa "tức thì < 50ms" và issue #3 hứa kho đóng gói sẵn trong app.
@@ -104,6 +107,31 @@ void main() {
     expect(GlossaryRepository.instance.findByAcronymExact('K8s'), isNotNull);
     sw.stop();
     expect(sw.elapsedMilliseconds, lessThan(50));
+  });
+
+  testWidgets('link nguồn gốc trong phần ghi công mở trình duyệt', (tester) async {
+    final launches = <String>[];
+    const channel = MethodChannel('plugins.flutter.io/url_launcher');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'launch') launches.add(call.arguments.toString());
+      return true;
+    });
+    addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null));
+
+    await tester.pumpWidget(const MaterialApp(home: TermDetailScreen(termId: 'md_api')));
+    await tester.pumpAndSettle();
+
+    // Phần ghi công nằm cuối ListView, ngoài khung nhìn test -> cuộn tới trước.
+    await tester.drag(find.byType(ListView), const Offset(0, -3000));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Xem nguồn gốc'), findsWidgets);
+
+    await tester.tap(find.textContaining('Xem nguồn gốc').first);
+    await tester.pumpAndSettle();
+
+    expect(launches, isNotEmpty, reason: 'link ghi công phải thực sự mở, không phải nhãn chết');
   });
 }
 

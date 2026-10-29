@@ -144,4 +144,22 @@ void main() {
     // Dòng sync về chưa dịch -> báo trạng thái chứ không để tên tiếng Việt trống.
     expect(find.textContaining('Chưa có bản dịch tiếng Việt'), findsOneWidget);
   });
+
+  testWidgets('đánh dấu đã học ngay trên màn chi tiết, không cần vòng qua lộ trình', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: TermDetailScreen(termId: 'rfc_acl')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.radio_button_unchecked));
+    // Ghi trạng thái là I/O SQLite thật, nằm ngoài zone đồng hồ giả của test:
+    // chờ I/O xong và để callback kịp setState rồi mới kiểm tra giao diện.
+    for (var i = 0; i < 20 && find.byTooltip('Bỏ đánh dấu đã học').evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+
+    expect(GlossaryRepository.instance.cachedStudyState('rfc_acl').learned, isTrue);
+    expect(find.byTooltip('Bỏ đánh dấu đã học'), findsOneWidget);
+    expect(find.textContaining('vào hàng chờ ôn tập'), findsOneWidget);
+  });
 }

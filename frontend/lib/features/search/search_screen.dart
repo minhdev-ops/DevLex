@@ -6,7 +6,10 @@ import '../contribute/contribution_screen.dart';
 import '../detail/term_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  const SearchScreen({super.key, this.warmUp});
+
+  /// Cho test mô phỏng kho nạp chậm; mặc định nạp kho đóng gói thật.
+  final Future<void> Function()? warmUp;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -23,7 +26,18 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
-    _repo.warmUp().then((_) => setState(() => _ready = true));
+    final warmUp = widget.warmUp ?? _repo.warmUp;
+    warmUp().then((_) {
+      if (!mounted) return;
+      setState(() {
+        _ready = true;
+        // Người dùng có thể đã gõ khi kho còn nạp: lúc đó onChanged bị khóa nên
+        // phải chạy lại, nếu không một từ khóa hợp lệ bị báo "không có mục từ".
+        if (_controller.text.trim().isNotEmpty) {
+          _results = _repo.search(_controller.text);
+        }
+      });
+    });
     _loadSyncTime();
   }
 

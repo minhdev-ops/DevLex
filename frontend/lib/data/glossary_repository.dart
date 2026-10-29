@@ -51,15 +51,19 @@ class GlossaryRepository {
   }
 
   /// Chuẩn hóa khóa tìm kiếm một lần cho mỗi mục từ thay vì mỗi lần gõ: với kho
-  /// >6.000 dòng, chi phí normalize theo từng query là phần chậm nhất.
+  /// >6.000 dòng, chi phí normalize và đếm ký tự theo từng query là phần chậm nhất.
   void _indexKeys() {
     _keys = [
       for (final t in _terms)
-        _SearchKeys(normalizeQuery(t.acronym), normalizeQuery(t.fullNameEn), normalizeQuery(t.fullNameVi)),
+        _SearchKeys(
+          profileOf(normalizeQuery(t.acronym)),
+          profileOf(normalizeQuery(t.fullNameEn)),
+          profileOf(normalizeQuery(t.fullNameVi)),
+        ),
     ];
     final byAcronym = <String, Term>{};
     for (var i = 0; i < _terms.length; i++) {
-      byAcronym.putIfAbsent(_keys[i].acronym, () => _terms[i]);
+      byAcronym.putIfAbsent(_keys[i].acronym.text, () => _terms[i]);
     }
     _byAcronym = byAcronym;
   }
@@ -158,6 +162,7 @@ class GlossaryRepository {
     final needle = normalizeQuery(query);
     if (needle.isEmpty) return const [];
 
+    final needleProfile = profileOf(needle);
     final alias = _aliases[needle];
     final scored = <SearchResult>[];
 
@@ -166,7 +171,7 @@ class GlossaryRepository {
       final keys = _keys[i];
       var best = 0.0;
       for (final field in [keys.acronym, keys.en, keys.vi]) {
-        final s = similarity(needle, field, cutoff: _minScore);
+        final s = similarityProfiled(needleProfile, field, cutoff: _minScore);
         if (s > best) best = s;
         if (best >= 1) break;
       }
@@ -351,14 +356,14 @@ class GlossaryRepository {
   StudyStats studyStats() => StudyStats.from(_study.values);
 }
 
-/// Ba khóa đã chuẩn hóa của một mục từ, dựng một lần khi nạp kho để mỗi lần gõ
-/// chỉ còn so sánh thay vì normalize lại toàn bộ danh sách.
+/// Ba khóa đã chuẩn hóa của một mục từ kèm hồ sơ ký tự, dựng một lần khi nạp kho
+/// để mỗi lần gõ chỉ còn so sánh thay vì normalize lại toàn bộ danh sách.
 class _SearchKeys {
   const _SearchKeys(this.acronym, this.en, this.vi);
 
-  final String acronym;
-  final String en;
-  final String vi;
+  final CharProfile acronym;
+  final CharProfile en;
+  final CharProfile vi;
 }
 
 class QuizQuestion {

@@ -58,15 +58,9 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _onQueryChanged(String value) {
-    final sw = Stopwatch()..start();
-    final results = _repo.search(value);
-    sw.stop();
     setState(() {
-      _results = results;
+      _results = _repo.search(value);
     });
-    if (value.isNotEmpty) {
-      debugPrint('search "$value": ${results.length} results in ${sw.elapsedMilliseconds}ms');
-    }
   }
 
   void _openTerm(SearchResult result) {

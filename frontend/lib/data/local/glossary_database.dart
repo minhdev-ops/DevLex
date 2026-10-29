@@ -233,7 +233,7 @@ class GlossaryDatabase {
     if (total == 0) return 0;
     final done = Sqflite.firstIntValue(await db.rawQuery(
         'SELECT COUNT(*) FROM study_state s JOIN terms t ON t.id = s.term_id '
-        'WHERE t.career = ? AND s.status = "learned"', [career])) ?? 0;
+        'WHERE t.career = ? AND s.status = \'learned\'', [career])) ?? 0;
     return (done * 100 / total).round();
   }
 

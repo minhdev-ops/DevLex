@@ -74,6 +74,15 @@ void main() {
     }
   });
 
+  test('API ở ba nguồn gộp thành một kết quả, bản có tên tiếng Việt thắng', () {
+    final results = GlossaryRepository.instance.search('api');
+
+    final api = results.where((r) => r.term.concept == 'applicationprogramminginterface').toList();
+    expect(api, hasLength(1), reason: 'MDN, RFC và bản biên soạn không được chiếm ba dòng');
+    expect(api.single.term.fullNameVi, isNotEmpty);
+    expect(api.single.siblingCount, greaterThanOrEqualTo(2));
+  });
+
   test('gõ sai một ký tự vẫn tới được thuật ngữ vận hành cốt lõi', () {
     final typo = GlossaryRepository.instance.search('load banancer');
     expect(typo.map((r) => r.term.acronym), contains('Load Balancer'));

@@ -216,7 +216,9 @@ class GlossaryRepository {
       final kept = out[slot];
       final preferIncoming = kept.term.needsTranslation && !r.term.needsTranslation;
       final winner = preferIncoming ? r : kept;
-      out[slot] = winner.withSiblings(winner.siblingCount + 1);
+      // Đổi sang dòng mới thì phải mang theo số anh em đã gộp trước đó, nếu không
+      // bản có tên tiếng Việt thắng sẽ báo thiếu nguồn.
+      out[slot] = winner.withSiblings(kept.siblingCount + r.siblingCount + 1);
     }
 
     return out;

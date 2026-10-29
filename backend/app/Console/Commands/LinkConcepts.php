@@ -66,13 +66,25 @@ class LinkConcepts extends Command
         $groups = [];
 
         Term::query()
-            ->select(['id', 'tier_1_full_name_en'])
+            ->select(['id', 'tier_1_acronym', 'tier_1_full_name_en', 'tier_1_short_definition'])
             ->cursor()
             ->each(function (Term $term) use (&$groups): void {
-                $key = TermText::conceptKey((string) $term->tier_1_full_name_en);
+                $name = (string) $term->tier_1_full_name_en;
+                $key = TermText::conceptKey($name);
+
+                // Nguồn chỉ ghi tên bằng viết tắt ("API"): lấy tên mở rộng từ định
+                // nghĩa để nối với dòng đã ghi đủ tên ở nguồn khác.
+                if ($key !== '' && $key === TermText::conceptKey((string) $term->tier_1_acronym)) {
+                    $expanded = TermText::expansionKey((string) $term->tier_1_acronym, (string) $term->tier_1_short_definition);
+                    if ($expanded !== '') {
+                        $key = $expanded;
+                    }
+                }
+
                 if ($key === '') {
                     return;
                 }
+
                 $groups[$key][] = $term->id;
             });
 

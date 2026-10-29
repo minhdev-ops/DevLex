@@ -268,7 +268,7 @@ class ImportGlossary extends Command
         }
 
         $aliases = $this->persistNistAliases($crossRefs);
-        $this->info("[nist] ghi {$aliases} alias từ trang trỏ chéo (stub)");
+        $this->info("[nist] ghi {$aliases} alias từ trang tra chéo (stub)");
 
         return self::SUCCESS;
     }
@@ -301,7 +301,7 @@ class ImportGlossary extends Command
 
             TermAlias::query()->updateOrCreate(
                 ['alias' => mb_strtolower($alias)],
-                ['term_id' => $targetId, 'naming_rule_note' => 'NIST CSRC: trang trỏ chéo (stub)'],
+                ['term_id' => $targetId, 'naming_rule_note' => 'NIST CSRC: trang tra chéo (stub)'],
             );
             $count++;
         }

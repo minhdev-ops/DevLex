@@ -89,6 +89,47 @@ final class TermText
     }
 
     /**
+     * Tên mở rộng của một mục từ chỉ có viết tắt: MDN/RFC ghi tên là "API" nhưng
+     * định nghĩa mở đầu bằng "An API (Application Programming Interface)..." hoặc
+     * "See: application programming interface." — lấy phần mở rộng đó làm khóa để
+     * gộp với dòng đã ghi đủ tên ở nguồn khác. Trả '' khi không tìm thấy hoặc phần
+     * mở rộng không cùng chữ cái đầu (tránh "API (American Petroleum Institute)"
+     * bị gộp nhầm vào khái niệm giao diện lập trình).
+     */
+    public static function expansionKey(string $acronym, string $definition): string
+    {
+        $acronym = trim($acronym);
+        if (preg_match('/^[\p{L}\p{N}\/.]{2,10}$/u', $acronym) !== 1) {
+            return '';
+        }
+
+        $expanded = '';
+        if (preg_match('/\b'.preg_quote($acronym, '/').'\s*\(([^()]{3,80})\)/iu', $definition, $m) === 1) {
+            $expanded = $m[1];
+        } elseif (preg_match('/^see:\s*(.+?)\.?\s*$/iu', trim($definition), $m) === 1) {
+            $expanded = $m[1];
+        }
+
+        $expanded = trim($expanded);
+        if ($expanded === '' || count(preg_split('/\s+/u', $expanded)) < 2) {
+            return '';
+        }
+
+        $key = self::conceptKey($expanded);
+        if ($key === '' || $key === self::conceptKey($acronym)) {
+            return '';
+        }
+
+        $first = function (string $s): string {
+            $plain = (string) preg_replace('/[^\p{L}\p{N}]+/u', '', mb_strtolower($s));
+
+            return $plain === '' ? '' : mb_substr($plain, 0, 1);
+        };
+
+        return $first($expanded) === $first($acronym) ? $key : '';
+    }
+
+    /**
      * Làm sạch một đoạn Markdown thành văn bản thuần:
      * - {{glossary("X","Y")}} / {{Glossary("X")}} -> Y hoặc X
      * - [text](url) -> text

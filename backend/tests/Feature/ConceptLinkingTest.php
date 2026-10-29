@@ -102,6 +102,48 @@ class ConceptLinkingTest extends TestCase
             ->assertJsonPath('data.trust.corroborated_confidence', 88);
     }
 
+    public function test_acronym_only_rows_merge_through_expansion_in_definition(): void
+    {
+        // MDN ghi tên là "API" nhưng định nghĩa mở rộng; RFC chỉ trỏ chéo sang tên
+        // đầy đủ. Cả hai phải nối vào khái niệm mà nguồn thứ ba đã ghi đủ tên.
+        $this->makeTerm('mdn_api', 'API', 'mdn', 'MDN Web Docs', 88,
+            'An API (Application Programming Interface) is a set of features and rules.');
+        $this->makeTerm('rfc_api', 'API', 'rfc4949', 'IETF RFC 4949', 93,
+            'See: application programming interface.');
+        $this->makeTerm('editorial_api', 'Application Programming Interface', 'editorial', 'DevLex Editorial', 70,
+            'Quy tắc cho phép các ứng dụng giao tiếp với nhau.');
+
+        $this->link();
+
+        $this->assertSame('applicationprogramminginterface', Term::find('mdn_api')->concept);
+        $this->assertSame('applicationprogramminginterface', Term::find('rfc_api')->concept);
+        $this->assertSame('applicationprogramminginterface', Term::find('editorial_api')->concept);
+    }
+
+    public function test_expansion_with_other_first_letter_stays_separate(): void
+    {
+        // "API" của NIST là American Petroleum Institute: cùng viết tắt, khác khái niệm.
+        $this->makeTerm('nist_api', 'API', 'nist', 'NIST CSRC Glossary', 95,
+            'API (American Petroleum Institute) is a standards body.');
+        $this->makeTerm('mdn_api', 'API', 'mdn', 'MDN Web Docs', 88,
+            'An API (Application Programming Interface) is a set of features.');
+
+        $this->link();
+
+        $this->assertSame('americanpetroleuminstitute', Term::find('nist_api')->concept);
+        $this->assertSame('applicationprogramminginterface', Term::find('mdn_api')->concept);
+        $this->assertNotSame(Term::find('mdn_api')->concept, Term::find('nist_api')->concept);
+    }
+
+    public function test_acronym_without_expansion_keeps_acronym_key(): void
+    {
+        $this->makeTerm('mdn_sso', 'SSO', 'mdn', 'MDN Web Docs', 88, 'Bypasses re-authentication on later visits.');
+
+        $this->link();
+
+        $this->assertSame('sso', Term::find('mdn_sso')->concept);
+    }
+
     public function test_dry_run_does_not_write(): void
     {
         $this->makeTerm('mdn_acl', 'access control list', 'mdn', 'MDN Web Docs', 88, 'Rules.');

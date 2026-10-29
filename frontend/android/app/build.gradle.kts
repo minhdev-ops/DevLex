@@ -29,10 +29,8 @@ android {
         targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        ndk {
-            // Hỗ trợ đầy đủ architecture 64-bit theo yêu cầu Google Play.
-            abiFilters += listOf("arm64-v8a")
-        }
+        // Không ghim abiFilters: Play tự tách ABI khi phát hành AAB. Ghim
+        // arm64-v8a sẽ loại máy 32-bit và xung đột với --split-per-abi.
     }
 
     buildTypes {

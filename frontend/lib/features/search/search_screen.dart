@@ -95,8 +95,19 @@ class _SearchScreenState extends State<SearchScreen> {
     final n = _repo.termCount;
     if (n == 0) return 'Chưa có dữ liệu offline — bấm nút đồng bộ ở góc phải.';
     final multi = _repo.corroboratedConceptCount;
-    final base = '$n thuật ngữ — 3 tầng tri thức, hoạt động offline';
-    return multi == 0 ? base : '$base · $multi khái niệm có ≥2 nguồn xác nhận';
+    final base = '${_group(n)} thuật ngữ — 3 tầng tri thức, hoạt động offline';
+    return multi == 0 ? base : '$base · ${_group(multi)} khái niệm có ≥2 nguồn xác nhận';
+  }
+
+  /// "6555" đọc chậm hơn "6.555"; dấu chấm là quy ước nhóm nghìn ở Việt Nam.
+  static String _group(int value) {
+    final digits = value.toString();
+    final buffer = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(digits[i]);
+    }
+    return buffer.toString();
   }
 
   String _syncCaption() {

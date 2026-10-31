@@ -30,3 +30,6 @@ frontend/build/
 
 # Archived pre-restructure Flutter scaffold (old flat layout)
 frontend_legacy/
+
+# graphify knowledge graph (generated; rebuild with `graphify update .`)
+graphify-out/

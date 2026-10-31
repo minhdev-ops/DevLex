@@ -5,9 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Term extends Model
 {
+    // Xóa mềm: term bị xóa vẫn còn id + deleted_at để Delta Sync báo cho client.
+    use SoftDeletes;
+
     protected $keyType = 'string';
 
     public $incrementing = false;

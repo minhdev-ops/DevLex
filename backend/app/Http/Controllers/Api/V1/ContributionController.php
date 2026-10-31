@@ -30,17 +30,41 @@ class ContributionController extends Controller
         ], 201);
     }
 
-    /** Danh sách: mặc định pending (cho moderator); lọc ?status=... */
+    /**
+     * Danh sách: mặc định pending (cho moderator); lọc ?status=...
+     *
+     * Cùng hình dạng envelope với các endpoint khác ({status, data, meta}) và
+     * có phân trang nhẹ để hàng chờ không trả về hàng nghìn dòng một lúc.
+     */
     public function index(Request $request): JsonResponse
     {
-        $status = $request->query('status', Contribution::STATUS_PENDING);
+        $validated = $request->validate([
+            'status' => ['sometimes', 'string', 'in:'.implode(',', Contribution::STATUSES)],
+            'limit' => ['sometimes', 'integer', 'min:1', 'max:200'],
+        ]);
+
+        $status = $validated['status'] ?? Contribution::STATUS_PENDING;
+        $limit = (int) ($validated['limit'] ?? 50);
+
         $items = Contribution::query()
-            ->when(in_array($status, Contribution::STATUSES, true), fn ($q) => $q->where('status', $status))
+            ->where('status', $status)
             ->latest()
-            ->limit(100)
+            ->limit($limit + 1)
             ->get();
 
-        return response()->json(['data' => $items]);
+        $hasMore = $items->count() > $limit;
+        $page = $hasMore ? $items->take($limit) : $items;
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $page->values(),
+            'meta' => [
+                'status' => $status,
+                'count' => $page->count(),
+                'limit' => $limit,
+                'has_more' => $hasMore,
+            ],
+        ]);
     }
 
     /**

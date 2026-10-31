@@ -28,6 +28,11 @@ class SyncController extends Controller
             'cursor' => ['sometimes', 'string', 'max:200'],
         ]);
 
+        // Chốt mốc NGAY khi bắt đầu xử lý, không phải lúc trả lời: bản ghi bị
+        // sửa trong lúc server đang dựng response sẽ có updated_at > mốc này nên
+        // lần sync sau vẫn lấy được, thay vì bị bỏ sót vĩnh viễn.
+        $syncTimestamp = now();
+
         $pageSize = (int) ($validated['page_size'] ?? self::DEFAULT_PAGE_SIZE);
         $after = $this->decodeCursor($validated['cursor'] ?? null);
 
@@ -46,6 +51,14 @@ class SyncController extends Controller
             });
         }
 
+        // Term đã xóa mềm (deleted_at) không nằm trong danh sách cập nhật nhưng
+        // phải được báo cho client để dọn dữ liệu offline.
+        $deletedIds = Term::onlyTrashed()
+            ->where('deleted_at', '>', $since)
+            ->orderBy('deleted_at')
+            ->pluck('id')
+            ->all();
+
         $rows = $query->limit($pageSize + 1)->get();
         $hasMore = $rows->count() > $pageSize;
         $page = $hasMore ? $rows->take($pageSize) : $rows;
@@ -53,13 +66,12 @@ class SyncController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'sync_timestamp' => now()->timestamp,
+            'sync_timestamp' => $syncTimestamp->timestamp,
             'has_more' => $hasMore,
             'next_cursor' => $hasMore && $last !== null ? $this->encodeCursor($last) : null,
             'changes' => [
                 'updated' => TermDetailResource::collection($page)->resolve(),
-                // Hard-delete chưa áp dụng ở MVP; hàng đợi cho Phase sau.
-                'deleted_ids' => [],
+                'deleted_ids' => $deletedIds,
             ],
         ]);
     }

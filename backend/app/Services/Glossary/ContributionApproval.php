@@ -34,11 +34,16 @@ class ContributionApproval
             $contribution->refresh();
         }
 
-        $existing = Term::query()
+        // withTrashed: đóng góp cho một thuật ngữ từng bị xóa mềm phải hồi sinh mục
+        // từ đó thay vì tạo bản trùng khóa chính.
+        $existing = Term::withTrashed()
             ->whereRaw('LOWER(tier_1_acronym) = ?', [strtolower($contribution->tier_1_acronym)])
             ->first();
 
         if ($existing) {
+            if ($existing->trashed()) {
+                $existing->restore();
+            }
             $existing->source_attribution = Contribution::mergeAttribution(
                 $existing->source_attribution ?? [],
                 $contribution->contributor_name,
@@ -55,6 +60,9 @@ class ContributionApproval
             'term_id' => $termId,
             'reviewed_by' => $reviewerId,
         ]);
+
+        // Thuật ngữ mới đã vào kho -> từ điển giải mã JD phải nạp lại.
+        TermDictionary::flush();
 
         return Term::query()->findOrFail($termId);
     }

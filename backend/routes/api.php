@@ -19,7 +19,9 @@ Route::prefix('v1')->group(function () {
 
     // FR-COMM: Cổng đóng góp cộng đồng
     Route::post('contributions', [ContributionController::class, 'store']);
-    Route::get('contributions', [ContributionController::class, 'index']);
+    // Hàng chờ chứa tên người đóng góp (PII) -> chỉ moderator được xem.
+    Route::get('contributions', [ContributionController::class, 'index'])
+        ->middleware('moderator');
     // Kiểm duyệt (approve/reject) yêu cầu bearer token moderator — FR-COMM-02.
     Route::post('contributions/{id}/approve', [ContributionController::class, 'approve'])
         ->middleware('moderator')->where('id', '[A-Za-z0-9_\-]+');

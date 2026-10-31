@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureModeratorToken;
+use App\Http\Middleware\ForceJsonResponse;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -14,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // API luôn trả JSON, kể cả khi client không gửi header Accept.
+        $middleware->api(append: [ForceJsonResponse::class]);
+
         $middleware->alias([
             'moderator' => EnsureModeratorToken::class,
         ]);

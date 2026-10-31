@@ -10,6 +10,7 @@ use App\Services\Glossary\NistParser;
 use App\Services\Glossary\ParsedTerm;
 use App\Services\Glossary\Rfc4949Parser;
 use App\Services\Glossary\SourceRegistry;
+use App\Services\Glossary\TermDictionary;
 use App\Services\Glossary\TermText;
 use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
@@ -70,6 +71,8 @@ class ImportGlossary extends Command
         }
 
         $stored = $this->persist($rows);
+        // Từ điển giải mã JD đã đổi -> bỏ cache để request kế tiếp thấy dữ liệu mới.
+        TermDictionary::flush();
         $this->info(sprintf('đã upsert %d dòng vào bảng terms', $stored));
 
         return self::SUCCESS;
@@ -421,7 +424,12 @@ class ImportGlossary extends Command
             $row['concept'] = TermText::conceptKey($row['tier_1_full_name_en'] ?? '') ?: null;
 
             try {
-                Term::query()->updateOrCreate(['id' => $row['id']], $row);
+                // withTrashed: nếu mục từ từng bị xóa mềm thì nạp lại phải hồi sinh,
+                // không thì updateOrCreate sẽ insert trùng khóa chính và bỏ qua vĩnh viễn.
+                $term = Term::withTrashed()->updateOrCreate(['id' => $row['id']], $row);
+                if ($term->trashed()) {
+                    $term->restore();
+                }
             } catch (QueryException $e) {
                 // Một dòng ghi hỏng không được xóa sạch công cả đợt quệt hàng giờ
                 // (đợt NIST từng chết vì id dài hơn cỡ cột varchar(40)).

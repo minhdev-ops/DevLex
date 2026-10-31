@@ -309,4 +309,150 @@ class ApiEndpointTest extends TestCase
         $this->postJson('/api/v1/contributions', ['contributor_name' => 'A'])
             ->assertStatus(422);
     }
+
+    public function test_moderation_queue_requires_moderator_token(): void
+    {
+        $this->postJson('/api/v1/contributions', [
+            'contributor_name' => 'Người Gửi',
+            'tier_1_acronym' => 'QUEUE',
+            'tier_1_full_name_en' => 'Queue Probe',
+            'tier_1_short_definition' => 'Probe.',
+        ])->assertCreated();
+
+        // Tên người đóng góp là PII -> không được lộ cho người lạ.
+        $this->getJson('/api/v1/contributions')->assertStatus(401);
+        $this->getJson('/api/v1/contributions', $this->moderatorHeaders())
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+    }
+
+    /**
+     * Regression: seeder từng thiếu authority_tier/confidence nên mọi mục từ
+     * MDN/NIST/CNCF đều bị chấm trust = 50 và mất bậc thẩm quyền.
+     */
+    public function test_seeded_attribution_carries_authority_tier_and_confidence(): void
+    {
+        $this->seed();
+
+        $term = Term::query()->findOrFail('term_api_001');
+        $first = $term->source_attribution[0];
+
+        $this->assertSame(1, $first['authority_tier']);
+        $this->assertSame(95, $first['confidence']);
+
+        $this->getJson('/api/v1/terms/term_api_001')
+            ->assertOk()
+            ->assertJsonPath('data.trust.base_confidence', 95)
+            ->assertJsonPath('data.trust.authority_tier', 1);
+    }
+
+    /** API phải trả JSON kể cả khi client quên header Accept (trước đây là 302 HTML). */
+    public function test_validation_errors_are_json_without_accept_header(): void
+    {
+        $res = $this->post('/api/v1/contributions', ['contributor_name' => 'A']);
+
+        $res->assertStatus(422);
+        $this->assertStringContainsString('application/json', (string) $res->headers->get('content-type'));
+        $this->assertArrayHasKey('errors', $res->json());
+    }
+
+    /** Term bị xóa phải được báo qua deleted_ids để app offline dọn dữ liệu cũ. */
+    public function test_sync_reports_deleted_terms(): void
+    {
+        $term = $this->term();
+        $term->delete();
+
+        $res = $this->getJson('/api/v1/sync/delta?last_pulled_at=0');
+
+        $res->assertOk();
+        $this->assertContains('mdn_api', $res->json('changes.deleted_ids'));
+        $this->assertNotContains('mdn_api', array_column($res->json('changes.updated'), 'id'));
+    }
+
+    /** Xóa mềm không được làm hỏng lần nạp lại dữ liệu (trùng khóa chính). */
+    public function test_reseeding_restores_soft_deleted_term(): void
+    {
+        $this->seed();
+        Term::query()->findOrFail('term_api_001')->delete();
+        $this->assertNull(Term::query()->find('term_api_001'));
+
+        $this->seed();
+
+        $this->assertNotNull(Term::query()->find('term_api_001'));
+    }
+
+    /** Mốc sync phải chốt trước khi query để không bỏ sót bản ghi sửa trong lúc trả lời. */
+    public function test_sync_timestamp_does_not_skip_concurrent_updates(): void
+    {
+        $this->term();
+
+        $first = $this->getJson('/api/v1/sync/delta?last_pulled_at=0');
+        $first->assertOk();
+        $this->assertLessThanOrEqual(now()->timestamp, $first->json('sync_timestamp'));
+
+        // Dùng lại đúng mốc vừa nhận: chưa có thay đổi mới thì không trả lại gì.
+        $again = $this->getJson('/api/v1/sync/delta?last_pulled_at='.$first->json('sync_timestamp'));
+        $again->assertOk();
+        $this->assertSame([], $again->json('changes.updated'));
+    }
+
+    /** Hàng chờ kiểm duyệt dùng chung envelope + có phân trang. */
+    public function test_moderation_queue_has_envelope_and_pagination(): void
+    {
+        foreach (['A', 'B', 'C'] as $name) {
+            $this->postJson('/api/v1/contributions', [
+                'contributor_name' => 'Người '.$name,
+                'tier_1_acronym' => 'Q'.$name,
+                'tier_1_full_name_en' => 'Queue '.$name,
+                'tier_1_short_definition' => 'Mô tả '.$name,
+            ])->assertCreated();
+        }
+
+        $res = $this->getJson('/api/v1/contributions?limit=2', $this->moderatorHeaders());
+        $res->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('meta.count', 2)
+            ->assertJsonPath('meta.has_more', true)
+            ->assertJsonCount(2, 'data');
+
+        $this->getJson('/api/v1/contributions?status=khong_hop_le', $this->moderatorHeaders())
+            ->assertStatus(422);
+    }
+
+    /** Từ điển giải mã JD phải thấy thuật ngữ vừa được duyệt. */
+    public function test_decoder_sees_term_after_contribution_approved(): void
+    {
+        $this->postJson('/api/v1/decoder/extract', ['raw_text' => 'Kinh nghiệm XSS'])
+            ->assertOk()
+            ->assertJsonCount(0, 'extracted_terms');
+
+        $created = $this->postJson('/api/v1/contributions', [
+            'contributor_name' => 'Người Gửi',
+            'tier_1_acronym' => 'XSS',
+            'tier_1_full_name_en' => 'Cross-Site Scripting',
+            'tier_1_short_definition' => 'Lỗi chèn mã độc vào trang web.',
+        ])->assertCreated();
+
+        $this->postJson(
+            '/api/v1/contributions/'.$created->json('data.id').'/approve',
+            [],
+            $this->moderatorHeaders()
+        )->assertOk();
+
+        $this->postJson('/api/v1/decoder/extract', ['raw_text' => 'Kinh nghiệm XSS'])
+            ->assertOk()
+            ->assertJsonPath('extracted_terms.0.acronym', 'XSS');
+    }
+
+    /** Thông báo lỗi trả về tiếng Việt để app hiển thị thẳng cho người dùng. */
+    public function test_validation_message_is_localized(): void
+    {
+        $res = $this->postJson('/api/v1/contributions', ['contributor_name' => 'A']);
+
+        $res->assertStatus(422);
+        $this->assertStringContainsString(
+            'không được để trống',
+            (string) $res->json('errors.tier_1_acronym.0')
+        );
+    }
 }

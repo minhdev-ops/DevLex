@@ -18,6 +18,8 @@ class TermSeeder extends Seeder
             'license' => 'CC BY-SA 2.5',
             'author_link' => $path,
             'modification_status' => 'Nội dung gốc đã được dịch sang tiếng Việt và đơn giản hóa bởi Hệ thống IT Glossary',
+            'authority_tier' => SourceRegistry::tier('mdn'),
+            'confidence' => SourceRegistry::confidence('mdn'),
         ];
 
         $cncf = fn (string $path, string $component) => [
@@ -27,6 +29,8 @@ class TermSeeder extends Seeder
             'license' => 'CC BY 4.0',
             'author_link' => $path,
             'modification_status' => 'Nội dung gốc đã được dịch sang tiếng Việt',
+            'authority_tier' => SourceRegistry::tier('cncf'),
+            'confidence' => SourceRegistry::confidence('cncf'),
         ];
 
         $nist = fn (string $component) => [
@@ -36,6 +40,8 @@ class TermSeeder extends Seeder
             'license' => 'Public Domain',
             'author_link' => 'https://csrc.nist.gov/glossary',
             'modification_status' => 'Nội dung gốc đã được dịch sang tiếng Việt và tóm tắt',
+            'authority_tier' => SourceRegistry::tier('nist'),
+            'confidence' => SourceRegistry::confidence('nist'),
         ];
 
         $editorial = fn (string $component = 'tier_1') => [
@@ -597,7 +603,12 @@ class TermSeeder extends Seeder
         ];
 
         foreach ($terms as $row) {
-            Term::query()->updateOrCreate(['id' => $row['id']], $row);
+            // withTrashed: seed lại sau khi một mục từ bị xóa mềm thì phải hồi sinh,
+            // nếu không sẽ insert trùng khóa chính.
+            $term = Term::withTrashed()->updateOrCreate(['id' => $row['id']], $row);
+            if ($term->trashed()) {
+                $term->restore();
+            }
         }
 
         $aliases = [

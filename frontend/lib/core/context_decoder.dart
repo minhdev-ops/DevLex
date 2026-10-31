@@ -43,7 +43,10 @@ class ContextDecoder {
 
   /// Token là cả một từ Unicode: cắt theo [A-Za-z] sẽ biến "Cần" thành "C" và
   /// "n", rồi highlight nhầm các acronym một ký tự trong câu tiếng Việt.
-  static final _tokenPattern = RegExp(r'[\p{L}\p{N}/]+|[^\p{L}\p{N}/]+', unicode: true);
+  static final _tokenPattern = RegExp(
+    r'[\p{L}\p{N}/]+|[^\p{L}\p{N}/]+',
+    unicode: true,
+  );
 
   DecodeResult decode(String raw, String? Function(String token) lookup) {
     final truncated = raw.length > maxChars;

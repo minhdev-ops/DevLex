@@ -46,7 +46,11 @@ void main() {
     final cold = Stopwatch()..start();
     GlossaryRepository.instance.search('api');
     cold.stop();
-    expect(cold.elapsedMilliseconds, lessThan(400), reason: 'lần quét nguội chậm bất thường');
+    expect(
+      cold.elapsedMilliseconds,
+      lessThan(400),
+      reason: 'lần quét nguội chậm bất thường',
+    );
 
     const queries = [
       'api', // acronym ngắn
@@ -66,10 +70,17 @@ void main() {
     for (final query in queries) {
       final timings = List<int>.generate(3, (_) => _timeSearch(query))..sort();
       expect(timings.first, lessThan(50), reason: 'query "$query" chậm');
-      expect(timings[1], lessThan(120), reason: 'query "$query" median chậm bất thường');
+      expect(
+        timings[1],
+        lessThan(120),
+        reason: 'query "$query" median chậm bất thường',
+      );
       if (query == 'api' || query == 'kubernetes' || query == 'giao thức') {
-        expect(GlossaryRepository.instance.search(query), isNotEmpty,
-            reason: 'query "$query" phải có kết quả');
+        expect(
+          GlossaryRepository.instance.search(query),
+          isNotEmpty,
+          reason: 'query "$query" phải có kết quả',
+        );
       }
       if (query == 'zzzzq') {
         expect(GlossaryRepository.instance.search(query), isEmpty);
@@ -80,8 +91,14 @@ void main() {
   test('API ở ba nguồn gộp thành một kết quả, bản có tên tiếng Việt thắng', () {
     final results = GlossaryRepository.instance.search('api');
 
-    final api = results.where((r) => r.term.concept == 'applicationprogramminginterface').toList();
-    expect(api, hasLength(1), reason: 'MDN, RFC và bản biên soạn không được chiếm ba dòng');
+    final api = results
+        .where((r) => r.term.concept == 'applicationprogramminginterface')
+        .toList();
+    expect(
+      api,
+      hasLength(1),
+      reason: 'MDN, RFC và bản biên soạn không được chiếm ba dòng',
+    );
     expect(api.single.term.fullNameVi, isNotEmpty);
     expect(api.single.siblingCount, greaterThanOrEqualTo(2));
   });
@@ -95,32 +112,46 @@ void main() {
     expect(graphql.first.term.fullNameVi, isNotEmpty);
   });
 
-  test('từ khóa tiếng Việt tìm đúng mục từ đã dịch, không bị thuật ngữ Anh chen mất', () {
-    final results = GlossaryRepository.instance.search('giao thức truyền tải');
+  test(
+    'từ khóa tiếng Việt tìm đúng mục từ đã dịch, không bị thuật ngữ Anh chen mất',
+    () {
+      final results = GlossaryRepository.instance.search(
+        'giao thức truyền tải',
+      );
 
-    expect(results, isNotEmpty);
-    expect(results.first.term.fullNameVi, isNotEmpty);
-  });
+      expect(results, isNotEmpty);
+      expect(results.first.term.fullNameVi, isNotEmpty);
+    },
+  );
 
-  test('highlight của Context Decoder tra acronym trong kho lớn vẫn tức thì', () {
-    final sw = Stopwatch()..start();
-    expect(GlossaryRepository.instance.findByAcronymExact('K8s'), isNotNull);
-    sw.stop();
-    expect(sw.elapsedMilliseconds, lessThan(50));
-  });
+  test(
+    'highlight của Context Decoder tra acronym trong kho lớn vẫn tức thì',
+    () {
+      final sw = Stopwatch()..start();
+      expect(GlossaryRepository.instance.findByAcronymExact('K8s'), isNotNull);
+      sw.stop();
+      expect(sw.elapsedMilliseconds, lessThan(50));
+    },
+  );
 
-  testWidgets('link nguồn gốc trong phần ghi công mở trình duyệt', (tester) async {
+  testWidgets('link nguồn gốc trong phần ghi công mở trình duyệt', (
+    tester,
+  ) async {
     final launches = <String>[];
     const channel = MethodChannel('plugins.flutter.io/url_launcher');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'launch') launches.add(call.arguments.toString());
-      return true;
-    });
-    addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null));
+          if (call.method == 'launch') launches.add(call.arguments.toString());
+          return true;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
 
-    await tester.pumpWidget(const MaterialApp(home: TermDetailScreen(termId: 'md_api')));
+    await tester.pumpWidget(
+      const MaterialApp(home: TermDetailScreen(termId: 'md_api')),
+    );
     await tester.pumpAndSettle();
 
     // Phần ghi công nằm cuối ListView, ngoài khung nhìn test -> cuộn tới trước.
@@ -131,7 +162,11 @@ void main() {
     await tester.tap(find.textContaining('Xem nguồn gốc').first);
     await tester.pumpAndSettle();
 
-    expect(launches, isNotEmpty, reason: 'link ghi công phải thực sự mở, không phải nhãn chết');
+    expect(
+      launches,
+      isNotEmpty,
+      reason: 'link ghi công phải thực sự mở, không phải nhãn chết',
+    );
   });
 }
 

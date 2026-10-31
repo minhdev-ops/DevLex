@@ -34,7 +34,11 @@ void main() {
         lookupFor({'C', 'n', 'v', 't', 'u', 'bi'}),
       );
 
-      expect(result.matchCount, 0, reason: '"Cần" không được cắt thành "C" + "n"');
+      expect(
+        result.matchCount,
+        0,
+        reason: '"Cần" không được cắt thành "C" + "n"',
+      );
       expect(result.tokens.map((t) => t.text).first, 'Cần');
       expect(result.tokens.map((t) => t.text).join(), 'Cần tuyển vị trí');
     });

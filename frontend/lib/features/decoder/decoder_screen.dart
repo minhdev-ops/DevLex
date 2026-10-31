@@ -1,6 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
+import 'package:flutter/services.dart';
 
 import '../../core/context_decoder.dart';
 import '../../data/glossary_repository.dart';
@@ -50,8 +50,10 @@ class _DecoderScreenState extends State<DecoderScreen> {
     }
     _recognizers.clear();
 
-    final result =
-        _decoder.decode(_controller.text, (t) => _repo.findByAcronymExact(t)?.id);
+    final result = _decoder.decode(
+      _controller.text,
+      (t) => _repo.findByAcronymExact(t)?.id,
+    );
     final spans = <InlineSpan>[];
     final matches = <Term>[];
     final theme = Theme.of(context);
@@ -64,16 +66,20 @@ class _DecoderScreenState extends State<DecoderScreen> {
         final recognizer = TapGestureRecognizer()
           ..onTap = () => _showPopover(term);
         _recognizers.add(recognizer);
-        matches.add(term);
-        spans.add(TextSpan(
-          text: token.text,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
-            backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+        if (!matches.any((m) => m.id == term.id)) matches.add(term);
+        spans.add(
+          TextSpan(
+            text: token.text,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.bold,
+              backgroundColor: theme.colorScheme.primaryContainer.withValues(
+                alpha: 0.5,
+              ),
+            ),
+            recognizer: recognizer,
           ),
-          recognizer: recognizer,
-        ));
+        );
       }
     }
 
@@ -97,15 +103,30 @@ class _DecoderScreenState extends State<DecoderScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(term.acronym,
-                style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            Text(term.bilingualName,
-                style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(sheetContext).colorScheme.onSurfaceVariant,
-                    )),
+            Text(
+              term.acronym,
+              style: Theme.of(
+                sheetContext,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            Text(
+              term.bilingualName,
+              style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(sheetContext).colorScheme.onSurfaceVariant,
+              ),
+            ),
             const SizedBox(height: 12),
-            Text('Tầng 1: ${term.shortDefinition}',
-                style: Theme.of(sheetContext).textTheme.bodyLarge),
+            Text(
+              'Tầng 1: ${term.shortDefinition}',
+              style: Theme.of(sheetContext).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Mã thuật ngữ: ${term.id}',
+              style: Theme.of(sheetContext).textTheme.labelSmall?.copyWith(
+                color: Theme.of(sheetContext).colorScheme.onSurfaceVariant,
+              ),
+            ),
             const SizedBox(height: 16),
             // FR-DEC-03: mở bài viết 3 tầng hoàn chỉnh.
             FilledButton.icon(
@@ -114,7 +135,9 @@ class _DecoderScreenState extends State<DecoderScreen> {
               onPressed: () {
                 Navigator.of(sheetContext).pop();
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => TermDetailScreen(termId: term.id)),
+                  MaterialPageRoute(
+                    builder: (_) => TermDetailScreen(termId: term.id),
+                  ),
                 );
               },
             ),
@@ -124,21 +147,66 @@ class _DecoderScreenState extends State<DecoderScreen> {
     );
   }
 
+  Future<void> _pasteFromClipboard() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim() ?? '';
+    if (!mounted) return;
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Clipboard đang trống.')));
+      return;
+    }
+    _controller.text = text;
+    _analyze();
+  }
+
+  void _clearText() {
+    _controller.clear();
+    _analyze();
+  }
+
+  void _useSample() {
+    _controller.text = _sample;
+    _analyze();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final empty = _controller.text.trim().isEmpty;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Giải mã ngữ cảnh'),
         actions: [
-          IconButton(onPressed: _analyze, icon: const Icon(Icons.auto_fix_high)),
+          IconButton(
+            tooltip: 'Dán từ clipboard',
+            onPressed: _pasteFromClipboard,
+            icon: const Icon(Icons.content_paste_go_outlined),
+          ),
+          if (!empty)
+            IconButton(
+              tooltip: 'Xóa văn bản',
+              onPressed: _clearText,
+              icon: const Icon(Icons.delete_outline),
+            ),
+          IconButton(
+            tooltip: 'Phân tích lại',
+            onPressed: _analyze,
+            icon: const Icon(Icons.auto_fix_high),
+          ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Dán đoạn văn bản kỹ thuật / tin tuyển dụng (JD) để hệ thống quét và giải mã từ viết tắt.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          Text(
+            'Dán đoạn văn bản kỹ thuật / tin tuyển dụng (JD) để hệ thống quét và giải mã từ viết tắt.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: _controller,
@@ -158,21 +226,46 @@ class _DecoderScreenState extends State<DecoderScreen> {
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 'Văn bản vượt 10.000 ký tự — hệ thống chỉ phân tích 10.000 ký tự đầu.',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.error),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
               ),
             ),
-          if (_spans != null) ...[
+          if (empty)
+            _DecoderEmpty(onSample: _useSample, onPaste: _pasteFromClipboard)
+          else if (_spans != null) ...[
             Row(
               children: [
                 Icon(Icons.tag, size: 16, color: theme.colorScheme.primary),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: Text('Tìm thấy ${_found.length} thuật ngữ — chạm từ được highlight để xem nhanh',
-                      style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary)),
+                  child: Text(
+                    _found.isEmpty
+                        ? 'Chưa tìm thấy thuật ngữ nào trong đoạn văn này'
+                        : 'Tìm thấy ${_found.length} thuật ngữ — chạm từ được highlight để xem nhanh',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
                 ),
               ],
             ),
+            if (_found.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _found
+                    .map(
+                      (t) => ActionChip(
+                        avatar: const Icon(Icons.search, size: 14),
+                        label: Text(t.acronym),
+                        onPressed: () => _showPopover(t),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
             const SizedBox(height: 12),
             Card(
               margin: EdgeInsets.zero,
@@ -182,6 +275,60 @@ class _DecoderScreenState extends State<DecoderScreen> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DecoderEmpty extends StatelessWidget {
+  const _DecoderEmpty({required this.onSample, required this.onPaste});
+
+  final VoidCallback onSample;
+  final VoidCallback onPaste;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      child: Column(
+        children: [
+          Icon(Icons.article_outlined, size: 52, color: scheme.outline),
+          const SizedBox(height: 12),
+          Text(
+            'Dán một đoạn JD hoặc tài liệu kỹ thuật',
+            style: Theme.of(context).textTheme.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Hệ thống sẽ tự tìm các từ viết tắt và thuật ngữ đã biết, '
+            'chạm vào từ được tô màu để xem định nghĩa Tầng 1 ngay tại chỗ.',
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: onPaste,
+                icon: const Icon(Icons.content_paste_go_outlined),
+                label: const Text('Dán từ clipboard'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onSample,
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Dùng ví dụ mẫu'),
+              ),
+            ],
+          ),
         ],
       ),
     );

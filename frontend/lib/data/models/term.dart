@@ -26,27 +26,31 @@ class Attribution {
   bool get isVerified => authorityTier == 1;
 
   factory Attribution.fromJson(Map<String, dynamic> json) => Attribution(
-        component: json['component'] as String? ?? '',
-        source: json['source'] as String? ?? '',
-        author: json['author'] as String? ?? '',
-        license: json['license'] as String? ?? '',
-        authorLink: json['authorLink'] as String? ?? json['author_link'] as String? ?? '',
-        modificationStatus:
-            json['modificationStatus'] as String? ?? json['modification_status'] as String? ?? '',
-        authorityTier: json['authorityTier'] as int? ?? json['authority_tier'] as int?,
-        confidence: json['confidence'] as int?,
-      );
+    component: json['component'] as String? ?? '',
+    source: json['source'] as String? ?? '',
+    author: json['author'] as String? ?? '',
+    license: json['license'] as String? ?? '',
+    authorLink:
+        json['authorLink'] as String? ?? json['author_link'] as String? ?? '',
+    modificationStatus:
+        json['modificationStatus'] as String? ??
+        json['modification_status'] as String? ??
+        '',
+    authorityTier:
+        json['authorityTier'] as int? ?? json['authority_tier'] as int?,
+    confidence: json['confidence'] as int?,
+  );
 
   Map<String, dynamic> toJson() => {
-        'component': component,
-        'source': source,
-        'author': author,
-        'license': license,
-        'authorLink': authorLink,
-        'modificationStatus': modificationStatus,
-        if (authorityTier != null) 'authority_tier': authorityTier,
-        if (confidence != null) 'confidence': confidence,
-      };
+    'component': component,
+    'source': source,
+    'author': author,
+    'license': license,
+    'authorLink': authorLink,
+    'modificationStatus': modificationStatus,
+    if (authorityTier != null) 'authority_tier': authorityTier,
+    if (confidence != null) 'confidence': confidence,
+  };
 }
 
 class Term {
@@ -91,51 +95,73 @@ class Term {
   bool get needsTranslation => fullNameVi.trim().isEmpty;
 
   /// "Tên tiếng Anh — tên tiếng Việt", bỏ vế trống khi chưa dịch để không lộ dấu —.
-  String get bilingualName => needsTranslation
-      ? '$fullNameEn · chờ dịch'
-      : '$fullNameEn — $fullNameVi';
+  String get bilingualName =>
+      needsTranslation ? '$fullNameEn · chờ dịch' : '$fullNameEn — $fullNameVi';
 
   factory Term.fromJson(Map<String, dynamic> json) => Term(
-        id: json['id'] as String,
-        acronym: json['acronym'] as String,
-        fullNameEn: json['fullNameEn'] as String,
-        fullNameVi: json['fullNameVi'] as String,
-        shortDefinition: json['shortDefinition'] as String,
-        detailedExplanation: json['detailedExplanation'] as String?,
-        metaphorAnalogy: json['metaphorAnalogy'] as String?,
-        diagramUrl: json['diagramUrl'] as String?,
-        categoryTags: (json['categoryTags'] as List<dynamic>? ?? [])
-            .map((e) => e.toString())
-            .toList(),
-        difficulty: json['difficulty'] as String? ?? 'Beginner',
-        prerequisites:
-            (json['prerequisites'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
-        relatedTerms:
-            (json['relatedTerms'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
-        career: json['career'] as String?,
-        attribution: (json['attribution'] as List<dynamic>? ?? [])
-            .map((e) => Attribution.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        concept: json['concept'] as String?,
-      );
+    id: json['id'] as String,
+    acronym: json['acronym'] as String,
+    fullNameEn: json['fullNameEn'] as String,
+    fullNameVi: json['fullNameVi'] as String,
+    shortDefinition: json['shortDefinition'] as String,
+    detailedExplanation: json['detailedExplanation'] as String?,
+    metaphorAnalogy: json['metaphorAnalogy'] as String?,
+    diagramUrl: json['diagramUrl'] as String?,
+    categoryTags: (json['categoryTags'] as List<dynamic>? ?? [])
+        .map((e) => e.toString())
+        .toList(),
+    difficulty: json['difficulty'] as String? ?? 'Beginner',
+    prerequisites: (json['prerequisites'] as List<dynamic>? ?? [])
+        .map((e) => e.toString())
+        .toList(),
+    relatedTerms: (json['relatedTerms'] as List<dynamic>? ?? [])
+        .map((e) => e.toString())
+        .toList(),
+    career: json['career'] as String?,
+    attribution: (json['attribution'] as List<dynamic>? ?? [])
+        .map((e) => Attribution.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    concept: json['concept'] as String?,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'acronym': acronym,
-        'fullNameEn': fullNameEn,
-        'fullNameVi': fullNameVi,
-        'shortDefinition': shortDefinition,
-        'detailedExplanation': detailedExplanation,
-        'metaphorAnalogy': metaphorAnalogy,
-        'diagramUrl': diagramUrl,
-        'categoryTags': categoryTags,
-        'difficulty': difficulty,
-        'prerequisites': prerequisites,
-        'relatedTerms': relatedTerms,
-        'career': career,
-        'concept': concept,
-        'attribution': attribution.map((a) => a.toJson()).toList(),
-      };
+    'id': id,
+    'acronym': acronym,
+    'fullNameEn': fullNameEn,
+    'fullNameVi': fullNameVi,
+    'shortDefinition': shortDefinition,
+    'detailedExplanation': detailedExplanation,
+    'metaphorAnalogy': metaphorAnalogy,
+    'diagramUrl': diagramUrl,
+    'categoryTags': categoryTags,
+    'difficulty': difficulty,
+    'prerequisites': prerequisites,
+    'relatedTerms': relatedTerms,
+    'career': career,
+    'concept': concept,
+    'attribution': attribution.map((a) => a.toJson()).toList(),
+  };
+
+  /// Bản sao dùng khi gộp các mục từ cùng khái niệm trên một lộ trình: giữ
+  /// nguyên nội dung đã chọn nhưng thay danh sách liên kết sang id của bản thắng.
+  Term copyWith({List<String>? prerequisites, List<String>? relatedTerms}) =>
+      Term(
+        id: id,
+        acronym: acronym,
+        fullNameEn: fullNameEn,
+        fullNameVi: fullNameVi,
+        shortDefinition: shortDefinition,
+        detailedExplanation: detailedExplanation,
+        metaphorAnalogy: metaphorAnalogy,
+        diagramUrl: diagramUrl,
+        categoryTags: categoryTags,
+        difficulty: difficulty,
+        prerequisites: prerequisites ?? this.prerequisites,
+        relatedTerms: relatedTerms ?? this.relatedTerms,
+        career: career,
+        attribution: attribution,
+        concept: concept,
+      );
 }
 
 class TermAlias {
@@ -150,10 +176,10 @@ class TermAlias {
   final String? namingRuleNote;
 
   factory TermAlias.fromJson(Map<String, dynamic> json) => TermAlias(
-        termId: json['termId'] as String,
-        alias: json['alias'] as String,
-        namingRuleNote: json['namingRuleNote'] as String?,
-      );
+    termId: json['termId'] as String,
+    alias: json['alias'] as String,
+    namingRuleNote: json['namingRuleNote'] as String?,
+  );
 }
 
 class SearchResult {
@@ -172,11 +198,11 @@ class SearchResult {
   final int siblingCount;
 
   SearchResult withSiblings(int count) => SearchResult(
-        term: term,
-        similarity: similarity,
-        matchedAlias: matchedAlias,
-        siblingCount: count,
-      );
+    term: term,
+    similarity: similarity,
+    matchedAlias: matchedAlias,
+    siblingCount: count,
+  );
 }
 
 enum LearnStatus { learned, needsReview }
@@ -188,6 +214,8 @@ class StudyState {
     required this.intervalDays,
     required this.dueDate,
     required this.streak,
+    this.needsReview = false,
+    this.lastActivity,
   });
 
   static const empty = StudyState(
@@ -199,16 +227,41 @@ class StudyState {
   );
 
   final String termId;
+
+  /// Đã học (status = learned) — dùng cho tiến độ lộ trình.
   final bool learned;
+
+  /// Đã đánh dấu "cần ôn tập" (status = needs_review): vẫn nằm trong kho ôn
+  /// nhưng không còn tính là hoàn thành lộ trình (FR-MAP-03).
+  final bool needsReview;
+
   final int intervalDays;
   final String? dueDate;
   final int streak;
 
-  factory StudyState.fromRow(Map<String, Object?> row) => StudyState(
-        termId: row['term_id'] as String,
-        learned: (row['status'] as String) == 'learned',
-        intervalDays: (row['interval_days'] as int?) ?? 0,
-        dueDate: row['due_date'] as String?,
-        streak: (row['streak'] as int?) ?? 0,
-      );
+  /// Lần tương tác gần nhất (ISO-8601 UTC) — dùng cho mục "Tiếp tục học".
+  final String? lastActivity;
+
+  /// Mục từ mới được xem, chưa đánh dấu học/ôn.
+  bool get isNew => !learned && !needsReview;
+
+  /// Nhãn trạng thái thân thiện cho UI.
+  String get statusLabel {
+    if (learned) return 'Đã học';
+    if (needsReview) return 'Cần ôn tập';
+    return 'Đã xem';
+  }
+
+  factory StudyState.fromRow(Map<String, Object?> row) {
+    final status = (row['status'] as String?) ?? 'new';
+    return StudyState(
+      termId: row['term_id'] as String,
+      learned: status == 'learned',
+      needsReview: status == 'needs_review',
+      intervalDays: (row['interval_days'] as int?) ?? 0,
+      dueDate: row['due_date'] as String?,
+      streak: (row['streak'] as int?) ?? 0,
+      lastActivity: row['last_review'] as String?,
+    );
+  }
 }

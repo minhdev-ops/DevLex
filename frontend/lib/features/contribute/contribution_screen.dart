@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/contribution_draft.dart';
 import '../../data/api_client.dart';
@@ -20,7 +21,8 @@ class SqliteContributorNameStore extends ContributorNameStore {
   Future<String?> read() => GlossaryDatabase.instance.getContributorName();
 
   @override
-  Future<void> write(String name) => GlossaryDatabase.instance.setContributorName(name);
+  Future<void> write(String name) =>
+      GlossaryDatabase.instance.setContributorName(name);
 }
 
 /// FR-COMM-01: biểu mẫu gửi đề xuất vào hàng chờ kiểm duyệt.
@@ -43,7 +45,8 @@ class _ContributionScreenState extends State<ContributionScreen> {
   final _detail = TextEditingController();
 
   late final ApiClient _api = widget.api ?? ApiClient();
-  late final ContributorNameStore _store = widget.nameStore ?? const SqliteContributorNameStore();
+  late final ContributorNameStore _store =
+      widget.nameStore ?? const SqliteContributorNameStore();
 
   bool _submitting = false;
   String? _sentId;
@@ -92,9 +95,12 @@ class _ContributionScreenState extends State<ContributionScreen> {
       _sentId = res.ok ? (res.id ?? 'đã gửi') : null;
     });
     if (!res.ok) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(res.message), backgroundColor: Colors.red.shade700));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res.message),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
       return;
     }
     await _store.write(_draft().contributorName);
@@ -170,6 +176,7 @@ class _ContributionScreenState extends State<ContributionScreen> {
             TextFormField(
               controller: _detail,
               maxLines: 5,
+              maxLength: ContributionDraft.maxDetail,
               decoration: const InputDecoration(
                 labelText: 'Giải thích chi tiết (Tầng 2, không bắt buộc)',
                 hintText: 'Ví dụ, luồng hoạt động, sai lầm thường gặp',
@@ -180,7 +187,11 @@ class _ContributionScreenState extends State<ContributionScreen> {
             FilledButton.icon(
               onPressed: _submitting ? null : _submit,
               icon: _submitting
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.send),
               label: Text(_submitting ? 'Đang gửi…' : 'Gửi đề xuất'),
             ),
@@ -204,7 +215,10 @@ class _HowItWorksCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary),
+          Icon(
+            Icons.info_outline,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(width: 10),
           const Expanded(
             child: Text(
@@ -241,7 +255,10 @@ class _SentCard extends StatelessWidget {
                 Icon(Icons.check_circle, color: scheme.primary),
                 const SizedBox(width: 10),
                 const Expanded(
-                  child: Text('Đã nhận đề xuất', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Đã nhận đề xuất',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -251,9 +268,27 @@ class _SentCard extends StatelessWidget {
               'Khi được duyệt, thuật ngữ xuất hiện trong kết quả tìm kiếm và mang tên bạn ở phần ghi công.',
               style: const TextStyle(fontSize: 13),
             ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(onPressed: onAnother, child: const Text('Gửi đề xuất khác')),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  onPressed: () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: contributionId),
+                    );
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Đã sao chép mã theo dõi.')),
+                    );
+                  },
+                  icon: const Icon(Icons.copy, size: 16),
+                  label: const Text('Sao chép mã'),
+                ),
+                TextButton(
+                  onPressed: onAnother,
+                  child: const Text('Gửi đề xuất khác'),
+                ),
+              ],
             ),
           ],
         ),

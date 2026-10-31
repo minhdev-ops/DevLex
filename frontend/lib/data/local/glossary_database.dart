@@ -54,7 +54,9 @@ class GlossaryDatabase {
           )
         ''');
         await db.execute('CREATE INDEX idx_terms_acronym ON terms(acronym)');
-        await db.execute('CREATE INDEX idx_terms_full_name_en ON terms(full_name_en)');
+        await db.execute(
+          'CREATE INDEX idx_terms_full_name_en ON terms(full_name_en)',
+        );
         await db.execute('''
           CREATE TABLE term_aliases(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,9 +74,11 @@ class GlossaryDatabase {
           )
         ''');
         await db.execute(
-            'CREATE INDEX idx_relationships_parent ON local_term_relationships(parent_id)');
+          'CREATE INDEX idx_relationships_parent ON local_term_relationships(parent_id)',
+        );
         await db.execute(
-            'CREATE INDEX idx_relationships_child ON local_term_relationships(child_id)');
+          'CREATE INDEX idx_relationships_child ON local_term_relationships(child_id)',
+        );
         await db.execute('''
           CREATE TABLE study_state(
             term_id TEXT PRIMARY KEY,
@@ -148,17 +152,22 @@ class GlossaryDatabase {
         'career': t.career,
         'concept': t.concept,
         'source_attribution': jsonEncode(
-            t.attribution.map((a) => a.toJson()).toList()),
+          t.attribution.map((a) => a.toJson()).toList(),
+        ),
       });
       for (final p in t.prerequisites) {
-        batch.insert('local_term_relationships',
-            {'parent_id': p, 'child_id': t.id, 'relation_type': 'prerequisite'},
-            conflictAlgorithm: ConflictAlgorithm.ignore);
+        batch.insert('local_term_relationships', {
+          'parent_id': p,
+          'child_id': t.id,
+          'relation_type': 'prerequisite',
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
       }
       for (final r in t.relatedTerms) {
-        batch.insert('local_term_relationships',
-            {'parent_id': t.id, 'child_id': r, 'relation_type': 'related'},
-            conflictAlgorithm: ConflictAlgorithm.ignore);
+        batch.insert('local_term_relationships', {
+          'parent_id': t.id,
+          'child_id': r,
+          'relation_type': 'related',
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
       }
     }
 
@@ -194,7 +203,12 @@ class GlossaryDatabase {
 
   Future<StudyState> getStudyState(String termId) async {
     final db = await database;
-    final row = await db.query('study_state', where: 'term_id = ?', whereArgs: [termId], limit: 1);
+    final row = await db.query(
+      'study_state',
+      where: 'term_id = ?',
+      whereArgs: [termId],
+      limit: 1,
+    );
     if (row.isEmpty) return StudyState.empty;
     return StudyState.fromRow(row.first);
   }
@@ -202,19 +216,27 @@ class GlossaryDatabase {
   Future<void> saveStudyState({
     required String termId,
     required bool learned,
+    bool needsReview = false,
     int intervalDays = 0,
     String? dueDate,
     int streak = 0,
   }) async {
     final db = await database;
+    final status = learned ? 'learned' : (needsReview ? 'needs_review' : 'new');
     await db.insert('study_state', {
       'term_id': termId,
-      'status': learned ? 'learned' : 'needs_review',
+      'status': status,
       'interval_days': intervalDays,
       'due_date': dueDate,
       'last_review': DateTime.now().toUtc().toIso8601String(),
       'streak': streak,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Đặt lại toàn bộ tiến độ học (Cài đặt) nhưng giữ kho thuật ngữ offline.
+  Future<void> clearStudyStates() async {
+    final db = await database;
+    await db.delete('study_state');
   }
 
   Future<Map<String, StudyState>> allStudyStates() async {
@@ -228,12 +250,23 @@ class GlossaryDatabase {
   /// Tỷ lệ % học viên đã hoàn thành trên một lộ trình nghề nghiệp (FR-MAP-03).
   Future<int> progressPercent(String career) async {
     final db = await database;
-    final total = Sqflite.firstIntValue(
-        await db.rawQuery('SELECT COUNT(*) FROM terms WHERE career = ?', [career])) ?? 0;
+    final total =
+        Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM terms WHERE career = ?', [
+            career,
+          ]),
+        ) ??
+        0;
     if (total == 0) return 0;
-    final done = Sqflite.firstIntValue(await db.rawQuery(
-        'SELECT COUNT(*) FROM study_state s JOIN terms t ON t.id = s.term_id '
-        'WHERE t.career = ? AND s.status = \'learned\'', [career])) ?? 0;
+    final done =
+        Sqflite.firstIntValue(
+          await db.rawQuery(
+            'SELECT COUNT(*) FROM study_state s JOIN terms t ON t.id = s.term_id '
+            'WHERE t.career = ? AND s.status = \'learned\'',
+            [career],
+          ),
+        ) ??
+        0;
     return (done * 100 / total).round();
   }
 
@@ -241,7 +274,8 @@ class GlossaryDatabase {
   Future<List<Term>> termsWithStudyState() async {
     final db = await database;
     final rows = await db.rawQuery(
-        'SELECT t.* FROM terms t JOIN study_state s ON t.id = s.term_id');
+      'SELECT t.* FROM terms t JOIN study_state s ON t.id = s.term_id',
+    );
     return rows.map(_termFromRow).toList();
   }
 
@@ -266,10 +300,11 @@ class GlossaryDatabase {
       relatedTerms: decodeStringList(row['related_terms']),
       career: row['career'] as String?,
       concept: row['concept'] as String?,
-      attribution: (jsonDecode(row['source_attribution'] as String? ?? '[]')
-              as List<dynamic>)
-          .map((e) => Attribution.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      attribution:
+          (jsonDecode(row['source_attribution'] as String? ?? '[]')
+                  as List<dynamic>)
+              .map((e) => Attribution.fromJson(e as Map<String, dynamic>))
+              .toList(),
     );
   }
 
@@ -279,20 +314,34 @@ class GlossaryDatabase {
     final db = await database;
     final batch = db.batch();
     for (final t in terms) {
-      batch.insert('terms', _termToRow(t), conflictAlgorithm: ConflictAlgorithm.replace);
-      batch.delete('local_term_relationships',
-          where: 'child_id = ? AND relation_type = ?', whereArgs: [t.id, 'prerequisite']);
-      batch.delete('local_term_relationships',
-          where: 'parent_id = ? AND relation_type = ?', whereArgs: [t.id, 'related']);
+      batch.insert(
+        'terms',
+        _termToRow(t),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      batch.delete(
+        'local_term_relationships',
+        where: 'child_id = ? AND relation_type = ?',
+        whereArgs: [t.id, 'prerequisite'],
+      );
+      batch.delete(
+        'local_term_relationships',
+        where: 'parent_id = ? AND relation_type = ?',
+        whereArgs: [t.id, 'related'],
+      );
       for (final p in t.prerequisites) {
-        batch.insert('local_term_relationships',
-            {'parent_id': p, 'child_id': t.id, 'relation_type': 'prerequisite'},
-            conflictAlgorithm: ConflictAlgorithm.ignore);
+        batch.insert('local_term_relationships', {
+          'parent_id': p,
+          'child_id': t.id,
+          'relation_type': 'prerequisite',
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
       }
       for (final r in t.relatedTerms) {
-        batch.insert('local_term_relationships',
-            {'parent_id': t.id, 'child_id': r, 'relation_type': 'related'},
-            conflictAlgorithm: ConflictAlgorithm.ignore);
+        batch.insert('local_term_relationships', {
+          'parent_id': t.id,
+          'child_id': r,
+          'relation_type': 'related',
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
       }
     }
     await batch.commit(noResult: true);
@@ -304,48 +353,81 @@ class GlossaryDatabase {
     final db = await database;
     final placeholders = List.generate(ids.length, (_) => '?').join(',');
     await db.delete('terms', where: 'id IN ($placeholders)', whereArgs: ids);
-    await db.delete('local_term_relationships', where: 'parent_id IN ($placeholders)', whereArgs: ids);
-    await db.delete('local_term_relationships', where: 'child_id IN ($placeholders)', whereArgs: ids);
+    await db.delete(
+      'local_term_relationships',
+      where: 'parent_id IN ($placeholders)',
+      whereArgs: ids,
+    );
+    await db.delete(
+      'local_term_relationships',
+      where: 'child_id IN ($placeholders)',
+      whereArgs: ids,
+    );
+    // Alias và tiến độ học của term đã xóa cũng phải dọn, nếu không chúng trỏ
+    // tới id không còn tồn tại và làm rác dữ liệu qua các lần sync.
+    await db.delete(
+      'term_aliases',
+      where: 'term_id IN ($placeholders)',
+      whereArgs: ids,
+    );
+    await db.delete(
+      'study_state',
+      where: 'term_id IN ($placeholders)',
+      whereArgs: ids,
+    );
   }
 
   Map<String, Object?> _termToRow(Term t) => {
-        'id': t.id,
-        'acronym': t.acronym,
-        'full_name_en': t.fullNameEn,
-        'full_name_vi': t.fullNameVi,
-        'short_definition': t.shortDefinition,
-        'detailed_explanation': t.detailedExplanation,
-        'metaphor_analogy': t.metaphorAnalogy,
-        'diagram_url': t.diagramUrl,
-        'category_tags': jsonEncode(t.categoryTags),
-        'difficulty': t.difficulty,
-        'prerequisites': jsonEncode(t.prerequisites),
-        'related_terms': jsonEncode(t.relatedTerms),
-        'career': t.career,
-        'concept': t.concept,
-        'source_attribution': jsonEncode(t.attribution.map((a) => a.toJson()).toList()),
-      };
+    'id': t.id,
+    'acronym': t.acronym,
+    'full_name_en': t.fullNameEn,
+    'full_name_vi': t.fullNameVi,
+    'short_definition': t.shortDefinition,
+    'detailed_explanation': t.detailedExplanation,
+    'metaphor_analogy': t.metaphorAnalogy,
+    'diagram_url': t.diagramUrl,
+    'category_tags': jsonEncode(t.categoryTags),
+    'difficulty': t.difficulty,
+    'prerequisites': jsonEncode(t.prerequisites),
+    'related_terms': jsonEncode(t.relatedTerms),
+    'career': t.career,
+    'concept': t.concept,
+    'source_attribution': jsonEncode(
+      t.attribution.map((a) => a.toJson()).toList(),
+    ),
+  };
 
   static const _cursorKey = 'last_pulled_at';
   static const _contributorKey = 'contributor_name';
 
   Future<String?> getMeta(String key) async {
     final db = await database;
-    final row = await db.query('sync_meta', where: 'key = ?', whereArgs: [key], limit: 1);
+    final row = await db.query(
+      'sync_meta',
+      where: 'key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
     return row.isEmpty ? null : row.first['value'] as String?;
   }
 
   Future<void> setMeta(String key, String value) async {
     final db = await database;
-    await db.insert('sync_meta', {'key': key, 'value': value}, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('sync_meta', {
+      'key': key,
+      'value': value,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<int> getSyncCursor() async => int.tryParse(await getMeta(_cursorKey) ?? '') ?? 0;
+  Future<int> getSyncCursor() async =>
+      int.tryParse(await getMeta(_cursorKey) ?? '') ?? 0;
 
-  Future<void> setSyncCursor(int epochSeconds) => setMeta(_cursorKey, epochSeconds.toString());
+  Future<void> setSyncCursor(int epochSeconds) =>
+      setMeta(_cursorKey, epochSeconds.toString());
 
   /// FR-COMM-01: giữ tên người đóng góp giữa các phiên, không bắt buộc tài khoản.
   Future<String?> getContributorName() => getMeta(_contributorKey);
 
-  Future<void> setContributorName(String name) => setMeta(_contributorKey, name.trim());
+  Future<void> setContributorName(String name) =>
+      setMeta(_contributorKey, name.trim());
 }

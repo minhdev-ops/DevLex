@@ -30,6 +30,43 @@ void main() {
       });
     });
 
+    // Giới hạn phải trùng StoreContributionRequest, nếu lệch thì người dùng
+    // điền xong mới bị server trả 422.
+    test('chặn vượt độ dài mà backend quy định', () {
+      final longName = ContributionDraft(
+        contributorName: 'a' * (ContributionDraft.maxName + 1),
+        acronym: 'API',
+        fullNameEn: 'Application Programming Interface',
+        shortDefinition: 'Quy tắc giao tiếp.',
+      );
+      expect(longName.validate()['contributorName'], isNotNull);
+
+      final longAcronym = ContributionDraft(
+        contributorName: 'Minh',
+        acronym: 'A' * (ContributionDraft.maxAcronym + 1),
+        fullNameEn: 'Application Programming Interface',
+        shortDefinition: 'Quy tắc giao tiếp.',
+      );
+      expect(longAcronym.validate()['acronym'], isNotNull);
+
+      final longFullName = ContributionDraft(
+        contributorName: 'Minh',
+        acronym: 'API',
+        fullNameEn: 'A' * (ContributionDraft.maxFullNameEn + 1),
+        shortDefinition: 'Quy tắc giao tiếp.',
+      );
+      expect(longFullName.validate()['fullNameEn'], isNotNull);
+
+      final longDetail = ContributionDraft(
+        contributorName: 'Minh',
+        acronym: 'API',
+        fullNameEn: 'Application Programming Interface',
+        shortDefinition: 'Quy tắc giao tiếp.',
+        detailedExplanation: 'x' * (ContributionDraft.maxDetail + 1),
+      );
+      expect(longDetail.validate()['detailedExplanation'], isNotNull);
+    });
+
     test('không gửi trường giải thích rỗng', () {
       const draft = ContributionDraft(
         contributorName: 'Minh',
@@ -38,7 +75,10 @@ void main() {
         shortDefinition: 'Quy tắc giao tiếp.',
         detailedExplanation: '   ',
       );
-      expect(draft.toJson().containsKey('tier_2_detailed_explanation'), isFalse);
+      expect(
+        draft.toJson().containsKey('tier_2_detailed_explanation'),
+        isFalse,
+      );
     });
   });
 }

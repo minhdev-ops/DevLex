@@ -21,43 +21,50 @@ Map<String, dynamic> apiRow({
   required String concept,
   required String source,
   required int confidence,
-}) =>
+}) => {
+  'id': id,
+  'tier_1': {
+    'acronym': acronym,
+    'full_name_en': name,
+    'full_name_vi': '',
+    'short_definition': '$name — định nghĩa ngắn.',
+  },
+  'tier_2': {
+    'detailed_explanation': null,
+    'metaphor_analogy': null,
+    'diagram_url': null,
+  },
+  'tier_3': {
+    'category_tags': <String>[],
+    'difficulty_level': 'Beginner',
+    'prerequisites': <String>[],
+    'related_terms': <String>[],
+  },
+  'source_attribution': [
     {
-      'id': id,
-      'tier_1': {
-        'acronym': acronym,
-        'full_name_en': name,
-        'full_name_vi': '',
-        'short_definition': '$name — định nghĩa ngắn.',
-      },
-      'tier_2': {'detailed_explanation': null, 'metaphor_analogy': null, 'diagram_url': null},
-      'tier_3': {
-        'category_tags': <String>[],
-        'difficulty_level': 'Beginner',
-        'prerequisites': <String>[],
-        'related_terms': <String>[],
-      },
-      'source_attribution': [
-        {
-          'component': 'tier_1',
-          'source': source,
-          'author': 'Ban biên soạn',
-          'license': 'Public Domain',
-          'authority_tier': 1,
-          'confidence': confidence,
-        },
-      ],
-      'roadmap_career': null,
-      'concept': concept,
-    };
+      'component': 'tier_1',
+      'source': source,
+      'author': 'Ban biên soạn',
+      'license': 'Public Domain',
+      'authority_tier': 1,
+      'confidence': confidence,
+    },
+  ],
+  'roadmap_career': null,
+  'concept': concept,
+};
 
-Map<String, dynamic> page(List<Map<String, dynamic>> rows, {required bool hasMore, String? nextCursor}) => {
-      'status': 'success',
-      'sync_timestamp': 1700000000,
-      'has_more': hasMore,
-      'next_cursor': nextCursor,
-      'changes': {'updated': rows, 'deleted_ids': []},
-    };
+Map<String, dynamic> page(
+  List<Map<String, dynamic>> rows, {
+  required bool hasMore,
+  String? nextCursor,
+}) => {
+  'status': 'success',
+  'sync_timestamp': 1700000000,
+  'has_more': hasMore,
+  'next_cursor': nextCursor,
+  'changes': {'updated': rows, 'deleted_ids': []},
+};
 
 final rfcAcl = apiRow(
   id: 'rfc_acl',
@@ -97,45 +104,98 @@ void main() {
 
   // I/O thật (asset seed, SQLite, HTTP) chỉ chạy được ngoài zone fake-async
   // của testWidgets, nên phần dữ liệu để trong test() thường.
-  test('delta sync nhiều lô: kéo hết trang, ghi SQLite, nạp lại cache', () async {
-    final requestedCursors = <String?>[];
-    final mock = MockClient((request) async {
-      final cursor = request.url.queryParameters['cursor'];
-      requestedCursors.add(cursor);
+  test(
+    'delta sync nhiều lô: kéo hết trang, ghi SQLite, nạp lại cache',
+    () async {
+      final requestedCursors = <String?>[];
+      final mock = MockClient((request) async {
+        final cursor = request.url.queryParameters['cursor'];
+        requestedCursors.add(cursor);
 
-      return http.Response(
-        jsonEncode(cursor == null
-            ? page([rfcAcl], hasMore: true, nextCursor: 'CURSOR_HAI')
-            : page([mdnAcl], hasMore: false)),
-        200,
-        headers: {'content-type': 'application/json'},
+        return http.Response(
+          jsonEncode(
+            cursor == null
+                ? page([rfcAcl], hasMore: true, nextCursor: 'CURSOR_HAI')
+                : page([mdnAcl], hasMore: false),
+          ),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = GlossaryRepository.instance;
+      final outcome = await repo.syncNow(
+        api: ApiClient(baseUrl: 'http://test', client: mock),
       );
+
+      expect(requestedCursors, [
+        null,
+        'CURSOR_HAI',
+      ], reason: 'phải kéo hết số lô cho tới khi next_cursor rỗng');
+      expect(outcome.ok, isTrue);
+      expect(outcome.updated, 2);
+      expect(await GlossaryDatabase.instance.getSyncCursor(), 1700000000);
+
+      final term = repo.termById('rfc_acl')!;
+      expect(
+        term.concept,
+        'accesscontrollist',
+        reason: 'cột concept phải sống sót qua vòng ghi/nạp SQLite',
+      );
+
+      final trust = repo.trustFor(term);
+      expect(trust.contexts.single.id, 'mdn_acl');
+      expect(
+        trust.agreeingSources,
+        containsAll(<String>['RFC 4949', 'MDN Web Docs']),
+      );
+      expect(
+        trust.confidence,
+        97,
+        reason: '= 93 + 4 cho mỗi nguồn độc lập phụ (trần 100)',
+      );
+    },
+  );
+
+  test('mất mạng giữa chừng: báo đồng bộ một phần và giữ con trỏ cũ', () async {
+    var calls = 0;
+    final mock = MockClient((request) async {
+      calls++;
+      if (calls == 1) {
+        return http.Response(
+          jsonEncode(page([mdnAcl], hasMore: true, nextCursor: 'CURSOR_KE')),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      return http.Response('', 500);
     });
 
     final repo = GlossaryRepository.instance;
-    final outcome = await repo.syncNow(api: ApiClient(baseUrl: 'http://test', client: mock));
+    final before = await GlossaryDatabase.instance.getSyncCursor();
+    final outcome = await repo.syncNow(
+      api: ApiClient(baseUrl: 'http://test', client: mock),
+    );
 
-    expect(requestedCursors, [null, 'CURSOR_HAI'],
-        reason: 'phải kéo hết số lô cho tới khi next_cursor rỗng');
-    expect(outcome.ok, isTrue);
-    expect(outcome.updated, 2);
-    expect(await GlossaryDatabase.instance.getSyncCursor(), 1700000000);
-
-    final term = repo.termById('rfc_acl')!;
-    expect(term.concept, 'accesscontrollist',
-        reason: 'cột concept phải sống sót qua vòng ghi/nạp SQLite');
-
-    final trust = repo.trustFor(term);
-    expect(trust.contexts.single.id, 'mdn_acl');
-    expect(trust.agreeingSources, containsAll(<String>['RFC 4949', 'MDN Web Docs']));
-    expect(trust.confidence, 97, reason: '= 93 + 4 cho mỗi nguồn độc lập phụ (trần 100)');
+    expect(outcome.ok, isTrue, reason: 'lô đầu đã ghi được');
+    expect(outcome.partial, isTrue, reason: 'phải nói rõ là chưa xong');
+    expect(outcome.updated, greaterThan(0));
+    expect(
+      await GlossaryDatabase.instance.getSyncCursor(),
+      before,
+      reason: 'con trỏ chỉ dịch khi sync trọn vẹn, nếu không sẽ bỏ sót lô sau',
+    );
   });
 
-  testWidgets('màn chi tiết hiển thị mức tin cậy đa nguồn (offline)', (tester) async {
+  testWidgets('màn chi tiết hiển thị mức tin cậy đa nguồn (offline)', (
+    tester,
+  ) async {
     // Kế thừa DB + cache in-memory mà test() ở trên đã nạp: singleton
     // GlossaryRepository/GlossaryDatabase không có seam để thế cache khác,
     // còn gọi warmUp() trong testWidgets sẽ kẹt vì I/O thật + zone fake async.
-    await tester.pumpWidget(const MaterialApp(home: TermDetailScreen(termId: 'rfc_acl')));
+    await tester.pumpWidget(
+      const MaterialApp(home: TermDetailScreen(termId: 'rfc_acl')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Mức tin cậy'), findsOneWidget);
@@ -145,21 +205,37 @@ void main() {
     expect(find.textContaining('Chưa có bản dịch tiếng Việt'), findsOneWidget);
   });
 
-  testWidgets('đánh dấu đã học ngay trên màn chi tiết, không cần vòng qua lộ trình', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: TermDetailScreen(termId: 'rfc_acl')));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'đánh dấu đã học ngay trên màn chi tiết, không cần vòng qua lộ trình',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: TermDetailScreen(termId: 'rfc_acl')),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.radio_button_unchecked));
-    // Ghi trạng thái là I/O SQLite thật, nằm ngoài zone đồng hồ giả của test:
-    // chờ I/O xong và để callback kịp setState rồi mới kiểm tra giao diện.
-    for (var i = 0; i < 20 && find.byTooltip('Bỏ đánh dấu đã học').evaluate().isEmpty; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-      await tester.pump();
-    }
-    await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.radio_button_unchecked));
+      // Ghi trạng thái là I/O SQLite thật, nằm ngoài zone đồng hồ giả của test:
+      // chờ I/O xong và để callback kịp setState rồi mới kiểm tra giao diện.
+      // 60 vòng × 50ms: khi cả bộ test chạy song song, I/O SQLite có thể chậm
+      // hơn nhiều so với lúc chạy riêng file này.
+      for (
+        var i = 0;
+        i < 60 && find.byTooltip('Bỏ đánh dấu đã học').evaluate().isEmpty;
+        i++
+      ) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
 
-    expect(GlossaryRepository.instance.cachedStudyState('rfc_acl').learned, isTrue);
-    expect(find.byTooltip('Bỏ đánh dấu đã học'), findsOneWidget);
-    expect(find.textContaining('vào hàng chờ ôn tập'), findsOneWidget);
-  });
+      expect(
+        GlossaryRepository.instance.cachedStudyState('rfc_acl').learned,
+        isTrue,
+      );
+      expect(find.byTooltip('Bỏ đánh dấu đã học'), findsOneWidget);
+      expect(find.textContaining('vào hàng chờ ôn tập'), findsOneWidget);
+    },
+  );
 }

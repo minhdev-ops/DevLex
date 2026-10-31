@@ -5,10 +5,10 @@ import 'package:it_glossary/core/knowledge_graph.dart';
 void main() {
   // Chuỗi thẳng + một nhánh tắt: json <- api <- spa, api <- rest
   KnowledgeGraph build() => KnowledgeGraph([
-        ['json', 'api'],
-        ['api', 'rest'],
-        ['api', 'spa'],
-      ]);
+    ['json', 'api'],
+    ['api', 'rest'],
+    ['api', 'spa'],
+  ]);
 
   group('layerOf', () {
     test('node không có tiên quyết ở tầng 0', () {

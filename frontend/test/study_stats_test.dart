@@ -7,14 +7,13 @@ StudyState state({
   int intervalDays = 0,
   String? dueDate,
   int streak = 0,
-}) =>
-    StudyState(
-      termId: id,
-      learned: intervalDays > 0,
-      intervalDays: intervalDays,
-      dueDate: dueDate,
-      streak: streak,
-    );
+}) => StudyState(
+  termId: id,
+  learned: intervalDays > 0,
+  intervalDays: intervalDays,
+  dueDate: dueDate,
+  streak: streak,
+);
 
 void main() {
   final now = DateTime.utc(2026, 10, 28, 12);

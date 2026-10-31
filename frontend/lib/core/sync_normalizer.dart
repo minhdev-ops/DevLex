@@ -29,12 +29,17 @@ class SyncNormalizer {
   const SyncNormalizer._();
 
   static SyncResult normalize(Map<String, dynamic> delta) {
-    final changes = (delta['changes'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+    final changes =
+        (delta['changes'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
     final updated = changes['updated'] as List? ?? const [];
     final deleted = changes['deleted_ids'] as List? ?? const [];
 
     return SyncResult(
-      rows: updated.whereType<Map>().map((e) => _toLocalRow(e.cast<String, dynamic>())).toList(growable: false),
+      rows: updated
+          .whereType<Map>()
+          .map((e) => _toLocalRow(e.cast<String, dynamic>()))
+          .toList(growable: false),
       deletedIds: deleted.map((e) => e.toString()).toList(growable: false),
       serverTimestamp: (delta['sync_timestamp'] as num?)?.toInt() ?? 0,
       hasMore: delta['has_more'] == true,
@@ -43,9 +48,15 @@ class SyncNormalizer {
   }
 
   static Map<String, dynamic> _toLocalRow(Map<String, dynamic> api) {
-    final t1 = (api['tier_1'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
-    final t2 = (api['tier_2'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
-    final t3 = (api['tier_3'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+    final t1 =
+        (api['tier_1'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    final t2 =
+        (api['tier_2'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    final t3 =
+        (api['tier_3'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
 
     return <String, dynamic>{
       'id': api['id'] as String? ?? '',

@@ -75,9 +75,9 @@ class StudyStats {
 
   /// Bốn bậc thang SRS (mục 2.4) theo thứ tự tăng dần độ vững kiến thức.
   List<(String label, int count)> get ladder => [
-        ('Mới đánh dấu', fresh),
-        ('1 ngày', day1),
-        ('3 ngày', day3),
-        ('7 ngày', day7),
-      ];
+    ('Chưa ôn', fresh),
+    ('1 ngày', day1),
+    ('3 ngày', day3),
+    ('7 ngày', day7),
+  ];
 }

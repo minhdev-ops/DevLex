@@ -2,8 +2,8 @@
 /// Tách khỏi widget để kiểm thử được mà không cần SQLite hay asset.
 class KnowledgeGraph {
   KnowledgeGraph(Iterable<Iterable<String>> edges)
-      : _prerequisites = _group(edges, take: 1, give: 0),
-        _dependents = _group(edges, take: 0, give: 1);
+    : _prerequisites = _group(edges, take: 1, give: 0),
+      _dependents = _group(edges, take: 0, give: 1);
 
   final Map<String, Set<String>> _prerequisites;
   final Map<String, Set<String>> _dependents;
@@ -48,16 +48,24 @@ class KnowledgeGraph {
     return {for (final k in keys) k: buckets[k]!};
   }
 
-  Set<String> prerequisitesOf(String id) => {..._prerequisites[id] ?? const <String>{}};
+  Set<String> prerequisitesOf(String id) => {
+    ..._prerequisites[id] ?? const <String>{},
+  };
 
-  Set<String> dependentsOf(String id) => {..._dependents[id] ?? const <String>{}};
+  Set<String> dependentsOf(String id) => {
+    ..._dependents[id] ?? const <String>{},
+  };
 
   Set<String> prereqClosure(String id) => _closure(id, _prerequisites);
 
   Set<String> dependentClosure(String id) => _closure(id, _dependents);
 
   /// "Nhánh liên quan" của một node: chính nó + toàn bộ tổ tiên và hậu duệ.
-  Set<String> branchOf(String id) => {id, ...prereqClosure(id), ...dependentClosure(id)};
+  Set<String> branchOf(String id) => {
+    id,
+    ...prereqClosure(id),
+    ...dependentClosure(id),
+  };
 
   static Set<String> _closure(String id, Map<String, Set<String>> adjacency) {
     final out = <String>{};

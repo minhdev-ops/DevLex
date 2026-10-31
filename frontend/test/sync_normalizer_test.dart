@@ -17,7 +17,11 @@ void main() {
               'full_name_vi': '',
               'short_definition': 'Quy tắc để các ứng dụng giao tiếp.',
             },
-            'tier_2': {'detailed_explanation': 'API là cầu nối…', 'metaphor_analogy': null, 'diagram_url': null},
+            'tier_2': {
+              'detailed_explanation': 'API là cầu nối…',
+              'metaphor_analogy': null,
+              'diagram_url': null,
+            },
             'tier_3': {
               'category_tags': ['Backend'],
               'difficulty_level': 'Beginner',
@@ -25,7 +29,14 @@ void main() {
               'related_terms': [],
             },
             'source_attribution': [
-              {'component': 'tier_1', 'source': 'MDN Web Docs', 'author': 'Mozilla', 'license': 'CC BY-SA 2.5', 'authority_tier': 1, 'confidence': 88},
+              {
+                'component': 'tier_1',
+                'source': 'MDN Web Docs',
+                'author': 'Mozilla',
+                'license': 'CC BY-SA 2.5',
+                'authority_tier': 1,
+                'confidence': 88,
+              },
             ],
           },
         ],
@@ -57,7 +68,8 @@ void main() {
         'changes': {
           'updated': [
             {
-              ...(sample['changes'] as Map<String, dynamic>)['updated']!.first as Map<String, dynamic>,
+              ...(sample['changes'] as Map<String, dynamic>)['updated']!.first
+                  as Map<String, dynamic>,
               'concept': 'applicationprogramminginterface',
             },
           ],
@@ -66,7 +78,10 @@ void main() {
       };
       final r = SyncNormalizer.normalize(withConcept);
       expect(r.rows.single['concept'], 'applicationprogramminginterface');
-      expect(Term.fromJson(r.rows.single).concept, 'applicationprogramminginterface');
+      expect(
+        Term.fromJson(r.rows.single).concept,
+        'applicationprogramminginterface',
+      );
     });
 
     test('payload rỗng an toàn', () {

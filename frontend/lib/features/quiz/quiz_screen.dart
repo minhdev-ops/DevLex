@@ -24,11 +24,33 @@ class _QuizScreenState extends State<QuizScreen> {
   int _quizIndex = 0;
   int? _selected;
   int _score = 0;
+  final List<QuizQuestion> _wrong = [];
+
+  int _sessionRemembered = 0;
+  int _sessionForgot = 0;
+
+  /// Đang ghi kết quả chấm: bỏ qua tín hiệu tiến độ do chính mình phát ra.
+  bool _grading = false;
 
   @override
   void initState() {
     super.initState();
     _repo.warmUp().then((_) => _load());
+    _repo.progressRevision.addListener(_onProgressChanged);
+  }
+
+  @override
+  void dispose() {
+    _repo.progressRevision.removeListener(_onProgressChanged);
+    super.dispose();
+  }
+
+  /// Học ở tab khác xong thì hàng chờ phải cập nhật — nhưng không được cắt
+  /// ngang phiên đang làm dở, nên chỉ nạp lại khi chưa bắt đầu hoặc đã hết thẻ.
+  void _onProgressChanged() {
+    if (!mounted || _grading || _mode != _Mode.review) return;
+    if (_cardIndex != 0 && _cardIndex < _queue.length) return;
+    _load();
   }
 
   void _load() {
@@ -36,14 +58,25 @@ class _QuizScreenState extends State<QuizScreen> {
       _queue = _repo.dueFlashcards();
       _cardIndex = 0;
       _showBack = false;
+      _sessionRemembered = 0;
+      _sessionForgot = 0;
       _ready = true;
     });
   }
 
   Future<void> _grade(bool remembered) async {
+    if (_queue.isEmpty || _cardIndex >= _queue.length) return;
     final term = _queue[_cardIndex];
+    _grading = true;
     await _repo.reviewFlashcard(term.id, remembered: remembered);
+    _grading = false;
+    if (!mounted) return;
     setState(() {
+      if (remembered) {
+        _sessionRemembered++;
+      } else {
+        _sessionForgot++;
+      }
       _showBack = false;
       _cardIndex++;
     });
@@ -55,7 +88,28 @@ class _QuizScreenState extends State<QuizScreen> {
       _quizIndex = 0;
       _selected = null;
       _score = 0;
+      _wrong.clear();
       _mode = _Mode.quiz;
+    });
+  }
+
+  Future<void> _answer(int index) async {
+    if (_selected != null) return;
+    final q = _quiz[_quizIndex];
+    final remembered = index == q.correctIndex;
+    if (!remembered) _wrong.add(q);
+    await _repo.reviewFlashcard(q.term.id, remembered: remembered);
+    if (!mounted) return;
+    setState(() {
+      _selected = index;
+      if (remembered) _score++;
+    });
+  }
+
+  void _nextQuestion() {
+    setState(() {
+      _quizIndex++;
+      _selected = null;
     });
   }
 
@@ -63,7 +117,9 @@ class _QuizScreenState extends State<QuizScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_ready) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (!_ready) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -75,10 +131,20 @@ class _QuizScreenState extends State<QuizScreen> {
             onPressed: _openStats,
           ),
           IconButton(
-            tooltip: _mode == _Mode.quiz ? 'Quay lại Flashcard' : 'Làm trắc nghiệm',
-            icon: Icon(_mode == _Mode.quiz ? Icons.replay : Icons.quiz_outlined),
-            onPressed: () => setState(
-                () => _mode = _mode == _Mode.quiz ? _Mode.review : _Mode.quiz),
+            tooltip: _mode == _Mode.quiz
+                ? 'Quay lại Flashcard'
+                : 'Làm trắc nghiệm',
+            icon: Icon(
+              _mode == _Mode.quiz ? Icons.replay : Icons.quiz_outlined,
+            ),
+            onPressed: () {
+              if (_mode == _Mode.quiz) {
+                setState(() => _mode = _Mode.review);
+                _load();
+              } else {
+                _startQuiz();
+              }
+            },
           ),
         ],
       ),
@@ -104,26 +170,18 @@ class _QuizScreenState extends State<QuizScreen> {
   // ---------- FR-QUIZ-02: Flashcard SRS ----------
   Widget _buildReview(BuildContext context) {
     final streak = _repo.totalReviewStreak();
+    final finished = _queue.isEmpty || _cardIndex >= _queue.length;
 
-    if (_queue.isEmpty || _cardIndex >= _queue.length) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.workspace_premium_outlined, size: 48),
-            const SizedBox(height: 12),
-            Text(streak > 0 ? 'Streak tốt nhất: $streak ngày liên tiếp' : 'Chưa có thẻ đến hạn ôn.',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text('Đánh dấu "đã học" ở tab Lộ trình hoặc Tra cứu để thêm thẻ vào hàng chờ.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall),
-            if (_queue.isNotEmpty && _cardIndex >= _queue.length) ...[
-              const SizedBox(height: 16),
-              FilledButton(onPressed: _load, child: const Text('Kiểm tra lại')),
-            ],
-          ],
-        ),
+    if (finished) {
+      return _ReviewEmpty(
+        streak: streak,
+        remembered: _sessionRemembered,
+        forgot: _sessionForgot,
+        hadQueue: _queue.isNotEmpty,
+        onReload: _load,
+        onQuiz: () {
+          _startQuiz();
+        },
       );
     }
 
@@ -133,43 +191,141 @@ class _QuizScreenState extends State<QuizScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text('${_cardIndex + 1} / ${_queue.length}   •   streak cá nhân: ${state.streak}',
-              style: Theme.of(context).textTheme.labelMedium),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Thẻ ${_cardIndex + 1}/${_queue.length}',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(5),
+                      child: LinearProgressIndicator(
+                        value: _queue.isEmpty ? 0 : _cardIndex / _queue.length,
+                        minHeight: 6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('Streak', style: Theme.of(context).textTheme.labelSmall),
+                  Text(
+                    '${state.streak} ngày',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Row(
+            children: [
+              _SessionPill(
+                icon: Icons.check_circle_outline,
+                count: _sessionRemembered,
+                label: 'Đã nhớ',
+                tone: AppTheme.tier2,
+              ),
+              const SizedBox(width: 8),
+              _SessionPill(
+                icon: Icons.refresh,
+                count: _sessionForgot,
+                label: 'Chưa nhớ',
+                tone: AppTheme.warning,
+              ),
+            ],
+          ),
         ),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: GestureDetector(
               onTap: () => setState(() => _showBack = !_showBack),
               child: Card(
                 margin: EdgeInsets.zero,
-                color: Colors.white,
                 child: Center(
-                  child: Padding(
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
                     child: _showBack
                         ? Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(term.shortDefinition,
-                                  textAlign: TextAlign.center,
-                                  style: Theme.of(context).textTheme.titleMedium),
+                              Text(
+                                term.acronym,
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(color: AppTheme.tier2),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                term.shortDefinition,
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
                               if (term.metaphorAnalogy != null) ...[
-                                const SizedBox(height: 12),
-                                Text(term.metaphorAnalogy!,
+                                const SizedBox(height: 14),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.tier2.withValues(
+                                      alpha: 0.08,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    term.metaphorAnalogy!,
                                     textAlign: TextAlign.center,
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: AppTheme.tier2,
-                                        )),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
+                                ),
                               ],
+                              const SizedBox(height: 12),
+                              Text(
+                                'Chạm để lật lại mặt trước',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
                             ],
                           )
-                        : Text(term.acronym,
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineMedium
-                                ?.copyWith(fontWeight: FontWeight.bold)),
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                term.acronym,
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Chạm thẻ để xem định nghĩa',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                            ],
+                          ),
                   ),
                 ),
               ),
@@ -177,13 +333,15 @@ class _QuizScreenState extends State<QuizScreen> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: _showBack
               ? Row(
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red.shade700),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red.shade700,
+                        ),
                         icon: const Icon(Icons.refresh),
                         label: const Text('Chưa nhớ'),
                         onPressed: () => _grade(false),
@@ -192,7 +350,9 @@ class _QuizScreenState extends State<QuizScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton.icon(
-                        style: FilledButton.styleFrom(backgroundColor: AppTheme.tier2),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.tier2,
+                        ),
                         icon: const Icon(Icons.check),
                         label: const Text('Đã nhớ'),
                         onPressed: () => _grade(true),
@@ -200,10 +360,13 @@ class _QuizScreenState extends State<QuizScreen> {
                     ),
                   ],
                 )
-              : OutlinedButton(onPressed: () => setState(() => _showBack = true), child: const Text('Lật thẻ')),
+              : OutlinedButton(
+                  onPressed: () => setState(() => _showBack = true),
+                  child: const Text('Lật thẻ'),
+                ),
         ),
         Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.only(bottom: 12),
           child: TextButton.icon(
             icon: const Icon(Icons.quiz_outlined),
             label: const Text('Chuyển sang Trắc nghiệm'),
@@ -225,12 +388,17 @@ class _QuizScreenState extends State<QuizScreen> {
             children: [
               const Icon(Icons.info_outline, size: 40),
               const SizedBox(height: 12),
-              Text('Cần tối thiểu 5 thuật ngữ đã học/xem để sinh bài trắc nghiệm.\nHãy đánh dấu "đã học" vài thuật ngữ trước.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium),
+              Text(
+                'Cần tối thiểu 5 thuật ngữ đã xem hoặc đã học để sinh bài trắc nghiệm.\n'
+                'Hãy mở vài thuật ngữ ở tab Tra cứu hoặc đánh dấu "đã học" trước.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               const SizedBox(height: 16),
-              OutlinedButton(onPressed: () => setState(() => _mode = _Mode.review),
-                  child: const Text('Về Flashcard')),
+              OutlinedButton(
+                onPressed: () => setState(() => _mode = _Mode.review),
+                child: const Text('Về Flashcard'),
+              ),
             ],
           ),
         ),
@@ -238,70 +406,358 @@ class _QuizScreenState extends State<QuizScreen> {
     }
 
     if (_quizIndex >= _quiz.length) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.emoji_events, size: 48, color: AppTheme.tier3),
-            const SizedBox(height: 12),
-            Text('Hoàn thành: $_score / ${_quiz.length}',
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: _startQuiz, child: const Text('Làm lại')),
-          ],
-        ),
-      );
+      return _buildResult(context);
     }
 
     final q = _quiz[_quizIndex];
+    final answered = _selected != null;
+    final correct = answered && _selected == q.correctIndex;
 
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
       children: [
-        Text('Câu ${_quizIndex + 1}/${_quiz.length}',
-            style: Theme.of(context).textTheme.labelMedium),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Câu ${_quizIndex + 1}/${_quiz.length}',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+            ),
+            Text(
+              '$_score đúng',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppTheme.tier2,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
-        Text('Nghĩa của "${q.term.acronym}" là?',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(5),
+          child: LinearProgressIndicator(
+            value: _quizIndex / _quiz.length,
+            minHeight: 6,
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          q.prompt,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 16),
         ...List.generate(q.options.length, (i) {
           final isCorrect = i == q.correctIndex;
           final isSelected = _selected == i;
-          final answered = _selected != null;
 
           Color? bg;
-          if (answered && isCorrect) bg = AppTheme.tier2.withValues(alpha: 0.15);
-          if (answered && isSelected && !isCorrect) bg = Colors.red.withValues(alpha: 0.12);
+          if (answered && isCorrect) {
+            bg = AppTheme.tier2.withValues(alpha: 0.15);
+          }
+          if (answered && isSelected && !isCorrect) {
+            bg = Colors.red.withValues(alpha: 0.12);
+          }
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
                 backgroundColor: bg,
+                disabledBackgroundColor: bg,
                 foregroundColor: Theme.of(context).colorScheme.onSurface,
+                disabledForegroundColor: Theme.of(
+                  context,
+                ).colorScheme.onSurface,
                 alignment: Alignment.centerLeft,
                 padding: const EdgeInsets.all(14),
               ),
-              onPressed: answered
-                  ? null
-                  : () async {
-                      final remembered = i == q.correctIndex;
-                      if (remembered) _score++;
-                      await _repo.reviewFlashcard(q.term.id, remembered: remembered);
-                      setState(() {
-                        _selected = i;
-                      });
-                      await Future<void>.delayed(const Duration(milliseconds: 900));
-                      setState(() {
-                        _quizIndex++;
-                        _selected = null;
-                      });
-                    },
-              child: Text(q.options[i]),
+              onPressed: answered ? null : () => _answer(i),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      String.fromCharCode(65 + i),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(q.options[i])),
+                  if (answered && isCorrect)
+                    const Icon(
+                      Icons.check_circle,
+                      size: 18,
+                      color: AppTheme.tier2,
+                    ),
+                  if (answered && isSelected && !isCorrect)
+                    Icon(Icons.cancel, size: 18, color: Colors.red.shade700),
+                ],
+              ),
             ),
           );
         }),
+        if (answered) ...[
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: (correct ? AppTheme.tier2 : Colors.red).withValues(
+                alpha: 0.08,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: (correct ? AppTheme.tier2 : Colors.red).withValues(
+                  alpha: 0.35,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      correct ? Icons.check_circle : Icons.info,
+                      size: 18,
+                      color: correct ? AppTheme.tier2 : Colors.red.shade700,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      correct ? 'Chính xác!' : 'Chưa đúng',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  q.explanation,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _nextQuestion,
+              child: Text(
+                _quizIndex == _quiz.length - 1 ? 'Xem kết quả' : 'Câu tiếp',
+              ),
+            ),
+          ),
+        ],
       ],
+    );
+  }
+
+  Widget _buildResult(BuildContext context) {
+    final total = _quiz.length;
+    final percent = total == 0 ? 0 : (_score * 100 / total).round();
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
+      children: [
+        Icon(
+          percent >= 80 ? Icons.emoji_events : Icons.flag_outlined,
+          size: 56,
+          color: percent >= 80 ? AppTheme.tier3 : AppTheme.primary,
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Kết quả: $_score/$total',
+          textAlign: TextAlign.center,
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '$percent% câu trả lời chính xác',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 14),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: total == 0 ? 0 : _score / total,
+            minHeight: 10,
+          ),
+        ),
+        if (_wrong.isNotEmpty) ...[
+          const SizedBox(height: 22),
+          Text(
+            'Cần ôn lại (${_wrong.length})',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          for (final q in _wrong)
+            Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: const Icon(Icons.refresh, color: AppTheme.warning),
+                title: Text(
+                  q.term.acronym,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  q.term.shortDefinition,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+        ],
+        const SizedBox(height: 18),
+        FilledButton.icon(
+          onPressed: _startQuiz,
+          icon: const Icon(Icons.replay),
+          label: const Text('Làm lại'),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () {
+            setState(() => _mode = _Mode.review);
+            _load();
+          },
+          icon: const Icon(Icons.style_outlined),
+          label: const Text('Về Flashcard'),
+        ),
+      ],
+    );
+  }
+}
+
+class _SessionPill extends StatelessWidget {
+  const _SessionPill({
+    required this.icon,
+    required this.count,
+    required this.label,
+    required this.tone,
+  });
+
+  final IconData icon;
+  final int count;
+  final String label;
+  final Color tone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: tone),
+          const SizedBox(width: 4),
+          Text(
+            '$label: $count',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: tone,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewEmpty extends StatelessWidget {
+  const _ReviewEmpty({
+    required this.streak,
+    required this.remembered,
+    required this.forgot,
+    required this.hadQueue,
+    required this.onReload,
+    required this.onQuiz,
+  });
+
+  final int streak;
+  final int remembered;
+  final int forgot;
+  final bool hadQueue;
+  final VoidCallback onReload;
+  final VoidCallback onQuiz;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final done = remembered + forgot;
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              done > 0
+                  ? Icons.workspace_premium_outlined
+                  : Icons.nightlight_outlined,
+              size: 52,
+              color: done > 0 ? AppTheme.tier3 : scheme.outline,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              done > 0 ? 'Hoàn thành phiên ôn!' : 'Chưa có thẻ đến hạn ôn',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            if (done > 0)
+              Text(
+                'Đã nhớ $remembered · Chưa nhớ $forgot\nStreak tốt nhất: $streak ngày liên tiếp',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              )
+            else
+              Text(
+                'Đánh dấu "đã học" ở tab Lộ trình hoặc Tra cứu để thêm thẻ vào hàng chờ.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            const SizedBox(height: 18),
+            if (hadQueue) ...[
+              FilledButton.icon(
+                onPressed: onReload,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Kiểm tra lại'),
+              ),
+              const SizedBox(height: 8),
+            ],
+            OutlinedButton.icon(
+              onPressed: onQuiz,
+              icon: const Icon(Icons.quiz_outlined),
+              label: const Text('Làm trắc nghiệm'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -327,7 +783,9 @@ class _StatsSheet extends StatelessWidget {
 
     return SafeArea(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.72),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+        ),
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
           child: Column(
@@ -337,14 +795,20 @@ class _StatsSheet extends StatelessWidget {
               if (stats.tracked == 0) ...[
                 const SizedBox(height: 20),
                 const Center(
-                    child: Icon(Icons.psychology_outlined, size: 44, color: Color(0xFF9AA6B2))),
+                  child: Icon(
+                    Icons.psychology_outlined,
+                    size: 44,
+                    color: Color(0xFF9AA6B2),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 Center(
                   child: Text(
-                      'Chưa có thẻ nào được theo dõi.\nĐánh dấu "đã học" ở Lộ trình hoặc Tra cứu để '
-                      'bắt đầu chu kỳ ôn 1 → 3 → 7 ngày.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall),
+                    'Chưa có thẻ nào được theo dõi.\nĐánh dấu "đã học" ở Lộ trình hoặc Tra cứu để '
+                    'bắt đầu chu kỳ ôn 1 → 3 → 7 ngày.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall,
+                  ),
                 ),
               ] else ...[
                 const SizedBox(height: 16),
@@ -375,9 +839,13 @@ class _StatsSheet extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text('${stats.points}',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold, color: AppTheme.primary)),
+              Text(
+                '${stats.points}',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primary,
+                ),
+              ),
               const SizedBox(width: 8),
               Text('điểm động lực', style: theme.textTheme.bodyMedium),
             ],
@@ -386,7 +854,9 @@ class _StatsSheet extends StatelessWidget {
           Text(
             '${stats.day1} thẻ ×2 · ${stats.day3} thẻ ×5 · ${stats.day7} thẻ ×10 · '
             'streak ${stats.bestStreak} ×3',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -399,8 +869,12 @@ class _StatsSheet extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Phân bố ${stats.tracked} thẻ',
-            style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        Text(
+          'Phân bố ${stats.tracked} thẻ',
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 8),
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
@@ -410,7 +884,10 @@ class _StatsSheet extends StatelessWidget {
               children: [
                 for (var i = 0; i < rungs.length; i++)
                   if (rungs[i].$2 > 0)
-                    Expanded(flex: rungs[i].$2, child: ColoredBox(color: _rungColors[i])),
+                    Expanded(
+                      flex: rungs[i].$2,
+                      child: ColoredBox(color: _rungColors[i]),
+                    ),
               ],
             ),
           ),
@@ -422,14 +899,23 @@ class _StatsSheet extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                    width: 12,
-                    height: 12,
-                    decoration:
-                        BoxDecoration(color: _rungColors[i], borderRadius: BorderRadius.circular(3))),
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: _rungColors[i],
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
                 const SizedBox(width: 10),
-                Expanded(child: Text(rungs[i].$1, style: theme.textTheme.bodyMedium)),
-                Text('${rungs[i].$2}',
-                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                Expanded(
+                  child: Text(rungs[i].$1, style: theme.textTheme.bodyMedium),
+                ),
+                Text(
+                  '${rungs[i].$2}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
@@ -448,7 +934,9 @@ class _StatsSheet extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 16),
             child: Text(
               '$longTerm% thẻ đã ôn ít nhất một lần đang ở chu kỳ dài nhất (7 ngày).',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         if (stats.dueNow > 0)
@@ -465,7 +953,10 @@ class _StatsSheet extends StatelessWidget {
             children: [
               const Icon(Icons.task_alt, color: AppTheme.tier2),
               const SizedBox(width: 8),
-              Text('Không còn thẻ đến hạn hôm nay.', style: theme.textTheme.bodyMedium),
+              Text(
+                'Không còn thẻ đến hạn hôm nay.',
+                style: theme.textTheme.bodyMedium,
+              ),
             ],
           ),
       ],

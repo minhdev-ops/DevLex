@@ -1,10 +1,7 @@
 import 'dart:typed_data';
 
 String normalizeQuery(String input) {
-  return input
-      .toLowerCase()
-      .replaceAll(RegExp(r'[\s\-_.,/]+'), '')
-      .trim();
+  return input.toLowerCase().replaceAll(RegExp(r'[\s\-_.,/]+'), '').trim();
 }
 
 int levenshtein(String a, String b) {
@@ -97,14 +94,20 @@ double similarity(String needle, String candidate, {double cutoff = 0}) =>
 
 /// Như [similarity] nhưng nhận hồ sơ ký tự dựng sẵn: toàn bộ kho được [profileOf]
 /// một lần khi nạp, nên mỗi lần gõ chỉ còn vài phép cộng trên bộ đếm.
-double similarityProfiled(CharProfile needle, CharProfile candidate, {required double cutoff}) {
+double similarityProfiled(
+  CharProfile needle,
+  CharProfile candidate, {
+  required double cutoff,
+}) {
   if (needle.length == 0 || candidate.length == 0) return 0;
   if (candidate.text == needle.text) return 1;
   if (candidate.text.contains(needle.text)) {
     return 0.9 + 0.1 * (needle.length / candidate.length);
   }
 
-  final maxLen = needle.length > candidate.length ? needle.length : candidate.length;
+  final maxLen = needle.length > candidate.length
+      ? needle.length
+      : candidate.length;
 
   if (cutoff <= 0) {
     final score = 1 - levenshtein(needle.text, candidate.text) / maxLen;
@@ -119,7 +122,8 @@ double similarityProfiled(CharProfile needle, CharProfile candidate, {required d
   if (1 - minDist / maxLen < cutoff) return 0;
 
   final maxDist = ((1 - cutoff) * maxLen).floor();
-  final score = 1 - _levenshteinUnder(needle.text, candidate.text, maxDist) / maxLen;
+  final score =
+      1 - _levenshteinUnder(needle.text, candidate.text, maxDist) / maxLen;
   return score < cutoff ? 0 : score;
 }
 

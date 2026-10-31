@@ -22,12 +22,18 @@ void main() {
       byCareer[career] = (byCareer[career] ?? 0) + 1;
     }
     for (final career in ['frontend', 'backend', 'devops', 'project_comm']) {
-      expect(byCareer[career] ?? 0, greaterThanOrEqualTo(5), reason: 'career $career thiếu thuật ngữ');
+      expect(
+        byCareer[career] ?? 0,
+        greaterThanOrEqualTo(5),
+        reason: 'career $career thiếu thuật ngữ',
+      );
     }
   });
 
   test('chứa các acronym chủ chốt của từng lộ trình nghề nghiệp', () {
-    final acronyms = terms.map((t) => (t['acronym'] as String).toLowerCase()).toSet();
+    final acronyms = terms
+        .map((t) => (t['acronym'] as String).toLowerCase())
+        .toSet();
     const required = [
       // frontend
       'html', 'css', 'dom', 'api', 'json', 'spa', 'ssr',
@@ -36,7 +42,13 @@ void main() {
       // devops
       'ci/cd', 'docker', 'container', 'kubernetes', 'iaas', 'paas',
       // project communication
-      'agile', 'scrum', 'sprint', 'pull request', 'code review', 'staging', 'hotfix',
+      'agile',
+      'scrum',
+      'sprint',
+      'pull request',
+      'code review',
+      'staging',
+      'hotfix',
     ];
     for (final r in required) {
       expect(acronyms, contains(r), reason: 'thiếu thuật ngữ bắt buộc: $r');
@@ -51,7 +63,11 @@ void main() {
         ...(t['relatedTerms'] as List<dynamic>? ?? []).cast<String>(),
       ];
       for (final r in refs) {
-        expect(ids, contains(r), reason: '${t['id']} tham chiếu "$r" không tồn tại');
+        expect(
+          ids,
+          contains(r),
+          reason: '${t['id']} tham chiếu "$r" không tồn tại',
+        );
       }
     }
   });
@@ -59,7 +75,11 @@ void main() {
   test('mọi thuật ngữ có attribution không rỗng (tuân thủ bản quyền)', () {
     for (final t in terms) {
       final attribution = t['attribution'] as List<dynamic>;
-      expect(attribution, isNotEmpty, reason: '${t['id']} thiếu source_attribution');
+      expect(
+        attribution,
+        isNotEmpty,
+        reason: '${t['id']} thiếu source_attribution',
+      );
     }
   });
 }

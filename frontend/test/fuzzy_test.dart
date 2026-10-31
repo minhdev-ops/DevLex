@@ -18,7 +18,10 @@ void main() {
     });
 
     test('khớp tiền tố cao hơn khớp xa', () {
-      expect(similarity('kube', 'kubernetes'), greaterThan(similarity('dock', 'kubernetes')));
+      expect(
+        similarity('kube', 'kubernetes'),
+        greaterThan(similarity('dock', 'kubernetes')),
+      );
     });
 
     test('gõ sai nhẹ vẫn đạt điểm cao (Levenshtein)', () {
@@ -32,7 +35,10 @@ void main() {
     });
 
     test('cutoff không được cắt mất ứng viên xứng đáng xuất hiện', () {
-      expect(similarity('kubernets', 'kubernetes', cutoff: 0.55), greaterThanOrEqualTo(0.8));
+      expect(
+        similarity('kubernets', 'kubernetes', cutoff: 0.55),
+        greaterThanOrEqualTo(0.8),
+      );
       expect(similarity('firewl', 'firewall', cutoff: 0.55), greaterThan(0.55));
       expect(similarity('api', 'api', cutoff: 0.55), 1.0);
     });
@@ -52,31 +58,40 @@ void main() {
       expect(similarity('50ss', 'ss', cutoff: 0.4), closeTo(0.5, 1e-9));
     });
 
-    test('bản dừng sớm cho điểm giống Levenshtein đầy đủ trên mọi cặp ngẫu nhiên', () {      final random = Random(7);
-      const alphabet = 'abcdeijklmnoprstuvxy0123456789';
+    test(
+      'bản dừng sớm cho điểm giống Levenshtein đầy đủ trên mọi cặp ngẫu nhiên',
+      () {
+        final random = Random(7);
+        const alphabet = 'abcdeijklmnoprstuvxy0123456789';
 
-      String word(int maxLen) {
-        final length = 1 + random.nextInt(maxLen);
-        return List.generate(length, (_) => alphabet[random.nextInt(alphabet.length)]).join();
-      }
-
-      for (var i = 0; i < 400; i++) {
-        final needle = word(12);
-        final candidate = word(12);
-        if (needle == candidate || candidate.contains(needle)) continue;
-
-        final maxLen = needle.length > candidate.length ? needle.length : candidate.length;
-        final exact = 1 - levenshtein(needle, candidate) / maxLen;
-
-        for (final cutoff in [0.4, 0.55, 0.7, 0.85]) {
-          expect(
-            similarity(needle, candidate, cutoff: cutoff),
-            exact < cutoff ? 0 : closeTo(exact, 1e-9),
-            reason: 'cặp "$needle" / "$candidate" với cutoff $cutoff',
-          );
+        String word(int maxLen) {
+          final length = 1 + random.nextInt(maxLen);
+          return List.generate(
+            length,
+            (_) => alphabet[random.nextInt(alphabet.length)],
+          ).join();
         }
-      }
-    });
+
+        for (var i = 0; i < 400; i++) {
+          final needle = word(12);
+          final candidate = word(12);
+          if (needle == candidate || candidate.contains(needle)) continue;
+
+          final maxLen = needle.length > candidate.length
+              ? needle.length
+              : candidate.length;
+          final exact = 1 - levenshtein(needle, candidate) / maxLen;
+
+          for (final cutoff in [0.4, 0.55, 0.7, 0.85]) {
+            expect(
+              similarity(needle, candidate, cutoff: cutoff),
+              exact < cutoff ? 0 : closeTo(exact, 1e-9),
+              reason: 'cặp "$needle" / "$candidate" với cutoff $cutoff',
+            );
+          }
+        }
+      },
+    );
   });
 
   test('levenshtein cơ bản', () {

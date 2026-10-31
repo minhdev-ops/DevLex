@@ -28,21 +28,31 @@ void main() {
     dir.deleteSync(recursive: true);
   });
 
-  testWidgets('gõ trong lúc kho đang nạp vẫn ra kết quả sau khi nạp xong', (tester) async {
+  testWidgets('gõ trong lúc kho đang nạp vẫn ra kết quả sau khi nạp xong', (
+    tester,
+  ) async {
     final gate = Completer<void>();
-    await tester.pumpWidget(MaterialApp(home: SearchScreen(warmUp: () => gate.future)));
+    await tester.pumpWidget(
+      MaterialApp(home: SearchScreen(warmUp: () => gate.future)),
+    );
 
     await tester.enterText(find.byType(TextField), 'api');
     await tester.pump();
-    expect(find.textContaining('Không có mục từ'), findsNothing,
-        reason: 'kho chưa nạp xong thì chưa được kết luận là không tìm thấy');
+    expect(
+      find.textContaining('Không có mục từ'),
+      findsNothing,
+      reason: 'kho chưa nạp xong thì chưa được kết luận là không tìm thấy',
+    );
 
     gate.complete();
     await tester.pump();
     await tester.pump();
 
     expect(find.text('API'), findsWidgets);
-    expect(find.text('3 nguồn'), findsWidgets,
-        reason: 'MDN, RFC và bản biên soạn phải được đếm chung một khái niệm');
+    expect(
+      find.text('3 nguồn'),
+      findsWidgets,
+      reason: 'MDN, RFC và bản biên soạn phải được đếm chung một khái niệm',
+    );
   });
 }

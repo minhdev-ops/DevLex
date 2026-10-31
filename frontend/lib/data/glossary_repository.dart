@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../core/fuzzy.dart';
 import '../core/study_stats.dart';
 import '../core/sync_normalizer.dart';
@@ -32,6 +34,15 @@ class GlossaryRepository {
 
   /// Ngưỡng điểm thấp nhất để một mục từ xuất hiện trong kết quả.
   static const double _minScore = 0.55;
+
+  /// Bumped mỗi khi tiến độ học đổi (đánh dấu, ôn tập, xem, đặt lại).
+  ///
+  /// Các tab nằm trong IndexedStack chỉ build một lần, nên nếu không có tín
+  /// hiệu này thì dashboard/Ôn tập vẫn hiển thị số liệu cũ sau khi người dùng
+  /// học ở tab khác.
+  final ValueNotifier<int> progressRevision = ValueNotifier<int>(0);
+
+  void _bumpProgress() => progressRevision.value++;
 
   Future<void> warmUp() async {
     if (_loaded) return;
@@ -90,7 +101,9 @@ class GlossaryRepository {
       if (payload == null) {
         // Mất mạng giữa chừng: các lô đã ghi vẫn còn nguyên (upsert idempotent),
         // con trỏ chưa dịch nên lần sau kéo lại từ đầu.
-        return page == 0 ? SyncOutcome.failed() : _done(updated, deleted, 0);
+        return page == 0
+            ? SyncOutcome.failed()
+            : _done(updated, deleted, 0, partial: true);
       }
 
       final result = SyncNormalizer.normalize(payload);
@@ -114,22 +127,29 @@ class GlossaryRepository {
 
     // hết @_maxSyncPages mà server vẫn còn lô -> chưa sync xong, giữ con trỏ cũ
     // để lần sau kéo tiếp từ đầu, không bỏ sót bản ghi.
-    return _done(updated, deleted, 0);
+    return _done(updated, deleted, 0, partial: true);
   }
 
-  Future<SyncOutcome> _done(int updated, int deleted, int serverTimestamp) async {
+  Future<SyncOutcome> _done(
+    int updated,
+    int deleted,
+    int serverTimestamp, {
+    bool partial = false,
+  }) async {
     if (serverTimestamp > 0) {
       await GlossaryDatabase.instance.setSyncCursor(serverTimestamp);
     }
 
     _loaded = false;
     await warmUp();
+    _bumpProgress();
 
     return SyncOutcome(
       ok: true,
       updated: updated,
       deleted: deleted,
       serverTimestamp: serverTimestamp,
+      partial: partial,
     );
   }
 
@@ -139,8 +159,12 @@ class GlossaryRepository {
   /// Gom offline theo khóa `concept` mà delta sync mang về — không cần request thêm.
   ConceptTrust trustFor(Term term) {
     final key = term.concept;
-    final group = (key == null || key.isEmpty) ? const <Term>[] : (_byConcept[key] ?? const <Term>[]);
-    final contexts = group.where((t) => t.id != term.id).toList(growable: false);
+    final group = (key == null || key.isEmpty)
+        ? const <Term>[]
+        : (_byConcept[key] ?? const <Term>[]);
+    final contexts = group
+        .where((t) => t.id != term.id)
+        .toList(growable: false);
 
     final sources = <String>{
       for (final a in term.attribution) a.source,
@@ -148,7 +172,9 @@ class GlossaryRepository {
         if (t.attribution.isNotEmpty) t.attribution.first.source,
     }.where((s) => s.isNotEmpty).toList(growable: false);
 
-    final own = term.attribution.isEmpty ? null : term.attribution.first.confidence;
+    final own = term.attribution.isEmpty
+        ? null
+        : term.attribution.first.confidence;
 
     return ConceptTrust(
       contexts: contexts,
@@ -181,11 +207,13 @@ class GlossaryRepository {
         best = 1;
       }
       if (best >= _minScore) {
-        scored.add(SearchResult(
-          term: term,
-          similarity: best,
-          matchedAlias: isAlias ? alias : null,
-        ));
+        scored.add(
+          SearchResult(
+            term: term,
+            similarity: best,
+            matchedAlias: isAlias ? alias : null,
+          ),
+        );
       }
     }
 
@@ -214,7 +242,8 @@ class GlossaryRepository {
       }
 
       final kept = out[slot];
-      final preferIncoming = kept.term.needsTranslation && !r.term.needsTranslation;
+      final preferIncoming =
+          kept.term.needsTranslation && !r.term.needsTranslation;
       final winner = preferIncoming ? r : kept;
       // Đổi sang dòng mới thì phải mang theo số anh em đã gộp trước đó, nếu không
       // bản có tên tiếng Việt thắng sẽ báo thiếu nguồn.
@@ -239,18 +268,112 @@ class GlossaryRepository {
     'project_comm': 'Project Communication',
   };
 
-  List<Term> termsByCareer(String career) =>
-      _terms.where((t) => t.career == career).toList(growable: false);
+  /// Thuật ngữ của một lộ trình, đã gộp các bản trùng khái niệm (ví dụ CNCF
+  /// Kubernetes + bản biên soạn tiếng Việt) thành một nút duy nhất.
+  ///
+  /// Liên kết tiên quyết/liên quan được ánh xạ sang id của bản thắng để sơ đồ
+  /// không còn cạnh trỏ tới nút đã bị ẩn.
+  List<Term> termsByCareer(String career) {
+    final groups = _careerGroups(career);
+    final winnerOf = <String, Term>{};
+    final remap = <String, String>{};
+    for (final entry in groups.entries) {
+      final winner = entry.value.reduce((a, b) => _preferTerm(a, b) ? a : b);
+      winnerOf[entry.key] = winner;
+      for (final t in entry.value) {
+        remap[t.id] = winner.id;
+      }
+    }
 
-  StudyState cachedStudyState(String termId) => _study[termId] ?? StudyState.empty;
+    List<String> clean(Iterable<String> ids, String winnerId) {
+      final seen = <String>{};
+      final out = <String>[];
+      for (final id in ids) {
+        final mapped = remap[id] ?? id;
+        if (mapped != winnerId && seen.add(mapped)) out.add(mapped);
+      }
+      return out;
+    }
+
+    final out = <Term>[];
+    for (final entry in groups.entries) {
+      final winner = winnerOf[entry.key]!;
+      out.add(
+        winner.copyWith(
+          prerequisites: clean(winner.prerequisites, winner.id),
+          relatedTerms: clean(winner.relatedTerms, winner.id),
+        ),
+      );
+    }
+    out.sort(
+      (a, b) => a.acronym.toLowerCase().compareTo(b.acronym.toLowerCase()),
+    );
+    return out;
+  }
+
+  Map<String, List<Term>> _careerGroups(String career) {
+    final groups = <String, List<Term>>{};
+    for (final t in _terms) {
+      if (t.career != career) continue;
+      final key = (t.concept == null || t.concept!.isEmpty)
+          ? '__${t.id}'
+          : t.concept!;
+      (groups[key] ??= <Term>[]).add(t);
+    }
+    return groups;
+  }
+
+  /// Chọn bản đại diện khi một khái niệm có nhiều nguồn: ưu tiên bản đã dịch,
+  /// rồi bản có ẩn dụ/giải thích đầy đủ hơn, cuối cùng là id để ổn định.
+  static bool _preferTerm(Term a, Term b) {
+    int score(Term t) {
+      var s = t.needsTranslation ? 0 : 100;
+      if ((t.metaphorAnalogy ?? '').trim().isNotEmpty) s += 10;
+      if ((t.detailedExplanation ?? '').trim().isNotEmpty) s += 5;
+      final confidence = t.attribution.isEmpty
+          ? 0
+          : (t.attribution.first.confidence ?? 0);
+      return s + confidence;
+    }
+
+    final diff = score(a) - score(b);
+    return diff != 0 ? diff > 0 : a.id.compareTo(b.id) > 0;
+  }
+
+  /// Tiến độ lộ trình tính ngay từ cache in-memory (không cần chờ SQLite), để
+  /// dashboard và header sơ đồ cập nhật tức thì sau khi đánh dấu đã học.
+  int careerProgressSync(String career) {
+    final groups = _careerGroups(career);
+    if (groups.isEmpty) return 0;
+    final done = groups.values.where((group) {
+      return group.any((t) => _study[t.id]?.learned ?? false);
+    }).length;
+    return (done * 100 / groups.length).round();
+  }
+
+  /// Số thuật ngữ đã hoàn thành / tổng số nút của lộ trình (đã gộp trùng).
+  (int done, int total) careerCounts(String career) {
+    final groups = _careerGroups(career);
+    final done = groups.values.where((group) {
+      return group.any((t) => _study[t.id]?.learned ?? false);
+    }).length;
+    return (done, groups.length);
+  }
+
+  StudyState cachedStudyState(String termId) =>
+      _study[termId] ?? StudyState.empty;
 
   Map<String, StudyState> get allStudyStates => _study;
 
   /// Kho đang có sẵn trên máy — cho người dùng biết mình đang tra cứu bao nhiêu mục từ.
   int get termCount => _terms.length;
 
+  /// Số biến thể/acronym đã ánh xạ (K8s, CI-CD, ...) — hiển thị ở Cài đặt.
+  int get aliasCount => _aliases.length;
+
   /// Số khái niệm được từ hai nguồn độc lập trở lên cùng định nghĩa (điểm tin cậy cao nhất).
-  int get corroboratedConceptCount => _byConcept.values.where((l) => l.length > 1).length;
+  int get corroboratedConceptCount =>
+      _byConcept.values.where((l) => l.length > 1).length;
 
   /// Lần kéo delta sync gần nhất; null nếu chưa từng đồng bộ (dữ liệu đóng gói trong app).
   Future<DateTime?> lastSyncAt() async {
@@ -264,39 +387,101 @@ class GlossaryRepository {
       GlossaryDatabase.instance.progressPercent(career);
 
   /// FR-MAP-03: đánh dấu Đã học / Cần ôn tập cho một thuật ngữ.
+  ///
+  /// Đánh dấu "đã học" phải đưa thẻ vào hàng chờ ôn ngay (due = bây giờ); nếu
+  /// để due null thì màn Ôn tập luôn báo "không có thẻ đến hạn" dù người dùng
+  /// vừa đánh dấu — lỗi luồng SRS 1 → 3 → 7 ngày.
   Future<int> toggleLearned(String termId) async {
     final current = _study[termId] ?? StudyState.empty;
     final nowLearned = !current.learned;
+    final now = DateTime.now().toUtc();
+    final dueDate = nowLearned
+        ? (current.dueDate ?? now.toIso8601String())
+        : null;
+    final needsReview = !nowLearned;
+
     await GlossaryDatabase.instance.saveStudyState(
       termId: termId,
       learned: nowLearned,
+      needsReview: needsReview,
       intervalDays: current.intervalDays,
-      dueDate: current.dueDate,
+      dueDate: dueDate,
       streak: current.streak,
     );
     _study[termId] = StudyState(
       termId: termId,
       learned: nowLearned,
+      needsReview: needsReview,
       intervalDays: current.intervalDays,
-      dueDate: current.dueDate,
+      dueDate: dueDate,
       streak: current.streak,
+      lastActivity: now.toIso8601String(),
     );
-    return GlossaryDatabase.instance.progressPercent(
-        _byId[termId]?.career ?? '');
+    _bumpProgress();
+    return careerProgressSync(_byId[termId]?.career ?? '');
+  }
+
+  /// FR-QUIZ-01: ghi nhận một thuật ngữ vừa được mở để nó có thể vào đề trắc
+  /// nghiệm kể cả khi người dùng chưa bấm "đã học". Chỉ ghi lần đầu, không
+  /// làm mất lịch ôn hiện có.
+  Future<void> recordView(String termId) async {
+    if (!_loaded) await warmUp();
+    if (_study.containsKey(termId) || !_byId.containsKey(termId)) return;
+    await GlossaryDatabase.instance.saveStudyState(
+      termId: termId,
+      learned: false,
+      intervalDays: 0,
+      dueDate: null,
+      streak: 0,
+    );
+    _study[termId] = StudyState(
+      termId: termId,
+      learned: false,
+      intervalDays: 0,
+      dueDate: null,
+      streak: 0,
+      lastActivity: DateTime.now().toUtc().toIso8601String(),
+    );
+    _bumpProgress();
+  }
+
+  /// Các thuật ngữ tương tác gần nhất, mới nhất trước — cho mục "Tiếp tục học".
+  List<Term> recentTerms({int limit = 6}) {
+    final rows =
+        _study.values
+            .where((s) => s.lastActivity != null && _byId.containsKey(s.termId))
+            .toList()
+          ..sort((a, b) => b.lastActivity!.compareTo(a.lastActivity!));
+    return rows.take(limit).map((s) => _byId[s.termId]!).toList();
+  }
+
+  /// Xóa tiến độ học/ôn nhưng giữ nguyên kho thuật ngữ đóng gói.
+  Future<void> resetProgress() async {
+    await GlossaryDatabase.instance.clearStudyStates();
+    // Không dùng `const {}`: map const là unmodifiable, lần đánh dấu kế tiếp sẽ
+    // ném "Cannot modify unmodifiable map".
+    _study = <String, StudyState>{};
+    _bumpProgress();
   }
 
   /// FR-QUIZ-02: ôn flashcard -> tính chu kỳ lặp lại tiếp theo (1/3/7 ngày) + streak.
-  Future<StudyState> reviewFlashcard(String termId, {required bool remembered}) async {
+  ///
+  /// "Chưa nhớ" chuyển trạng thái sang Cần ôn tập (không còn tính hoàn thành
+  /// lộ trình) và hẹn lại sau 1 ngày, thay vì vẫn giữ nhãn Đã học.
+  Future<StudyState> reviewFlashcard(
+    String termId, {
+    required bool remembered,
+  }) async {
     final current = _study[termId] ?? StudyState.empty;
-    final interval = remembered
-        ? nextIntervalDays(current.intervalDays)
-        : 1;
+    final interval = remembered ? nextIntervalDays(current.intervalDays) : 1;
     final streak = remembered ? current.streak + 1 : 0;
-    final due = DateTime.now().add(Duration(days: interval)).toUtc().toIso8601String();
+    final now = DateTime.now().toUtc();
+    final due = now.add(Duration(days: interval)).toIso8601String();
 
     await GlossaryDatabase.instance.saveStudyState(
       termId: termId,
-      learned: current.learned || remembered,
+      learned: remembered,
+      needsReview: !remembered,
       intervalDays: interval,
       dueDate: due,
       streak: streak,
@@ -304,50 +489,117 @@ class GlossaryRepository {
 
     final next = StudyState(
       termId: termId,
-      learned: current.learned || remembered,
+      learned: remembered,
+      needsReview: !remembered,
       intervalDays: interval,
       dueDate: due,
       streak: streak,
+      lastActivity: now.toIso8601String(),
     );
     _study[termId] = next;
+    _bumpProgress();
     return next;
   }
 
   /// Hàng chờ ôn tập: thẻ quá hạn hôm nay, ưu tiên streak cao hơn.
   List<Term> dueFlashcards() {
     final now = DateTime.now().toUtc();
-    final due = _study.values
-        .where((s) => s.dueDate != null && DateTime.parse(s.dueDate!).isBefore(now))
-        .toList()
-      ..sort((a, b) => b.streak.compareTo(a.streak));
+    final due =
+        _study.values
+            .where(
+              (s) =>
+                  s.dueDate != null && !DateTime.parse(s.dueDate!).isAfter(now),
+            )
+            .toList()
+          ..sort((a, b) => b.streak.compareTo(a.streak));
     return due.map((s) => _byId[s.termId]).whereType<Term>().toList();
   }
 
-  /// FR-QUIZ-01: sinh bộ câu hỏi trắc nghiệm từ các thuật ngữ đã học/xem.
-  /// Trả về rỗng nếu người dùng có < 5 thuật ngữ (điều kiện tiên quyết SRS).
-  List<QuizQuestion> buildQuiz({int size = 5}) {
-    final pool = _study.keys
-        .map((id) => _byId[id])
-        .whereType<Term>()
-        .toList();
+  /// FR-QUIZ-01: sinh 5–10 câu trắc nghiệm từ thuật ngữ đã xem hoặc đã học.
+  ///
+  /// Câu hỏi đảo chiều luân phiên (viết tắt → định nghĩa và định nghĩa → viết
+  /// tắt) để người học không đoán vị trí đáp án. Trả rỗng nếu chưa đủ 5 thuật
+  /// ngữ theo điều kiện tiên quyết của SRS.
+  List<QuizQuestion> buildQuiz({int? size}) {
+    // Gộp bản trùng acronym (cùng một thuật ngữ từ nhiều nguồn) để phương án
+    // nhiễu không lặp y hệt đáp án đúng.
+    final byAcronym = <String, Term>{};
+    for (final id in _study.keys) {
+      final term = _byId[id];
+      if (term == null) continue;
+      final key = term.acronym.trim().toLowerCase();
+      final current = byAcronym[key];
+      if (current == null ||
+          (current.needsTranslation && !term.needsTranslation)) {
+        byAcronym[key] = term;
+      }
+    }
+
+    final pool = byAcronym.values.toList();
     if (pool.length < 5) return const [];
 
+    final count = (size ?? pool.length).clamp(5, 10);
     pool.shuffle();
+    final chosen = pool.take(count).toList();
     final questions = <QuizQuestion>[];
-    for (final correct in pool.take(size)) {
-      final distractors = pool.where((t) => t.id != correct.id).toList()
-        ..shuffle();
-      final options = [
-        correct.shortDefinition,
-        ...distractors.take(3).map((t) => t.shortDefinition),
-      ]..shuffle();
-      questions.add(QuizQuestion(
-        term: correct,
-        options: options,
-        correctIndex: options.indexOf(correct.shortDefinition),
-      ));
+
+    for (var i = 0; i < chosen.length; i++) {
+      final correct = chosen[i];
+      final kind = i.isEven
+          ? QuizKind.acronymToDefinition
+          : QuizKind.definitionToAcronym;
+
+      final others = pool.where((t) => t.id != correct.id).toList()..shuffle();
+      final options = <String>[];
+      if (kind == QuizKind.acronymToDefinition) {
+        options.add(correct.shortDefinition);
+        for (final t in others) {
+          final candidate = t.shortDefinition.trim();
+          if (candidate.isNotEmpty &&
+              !options.contains(candidate) &&
+              options.length < 4) {
+            options.add(candidate);
+          }
+        }
+      } else {
+        options.add(correct.acronym);
+        for (final t in others) {
+          final candidate = t.acronym.trim();
+          if (candidate.isNotEmpty &&
+              !options.contains(candidate) &&
+              options.length < 4) {
+            options.add(candidate);
+          }
+        }
+      }
+      options.shuffle();
+
+      final prompt = kind == QuizKind.acronymToDefinition
+          ? 'Nghĩa của "${correct.acronym}" là gì?'
+          : 'Thuật ngữ nào khớp với định nghĩa sau?\n“${_shorten(correct.shortDefinition)}”';
+
+      questions.add(
+        QuizQuestion(
+          term: correct,
+          kind: kind,
+          prompt: prompt,
+          options: options,
+          correctIndex: options.indexOf(
+            kind == QuizKind.acronymToDefinition
+                ? correct.shortDefinition
+                : correct.acronym,
+          ),
+        ),
+      );
     }
     return questions;
+  }
+
+  static String _shorten(String text, {int max = 150}) {
+    final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    return clean.length <= max
+        ? clean
+        : '${clean.substring(0, max).trimRight()}…';
   }
 
   /// FR-QUIZ-03: số ngày ôn tập liên tục gần nhất (streak tổng).
@@ -368,16 +620,27 @@ class _SearchKeys {
   final CharProfile vi;
 }
 
+enum QuizKind { acronymToDefinition, definitionToAcronym }
+
 class QuizQuestion {
   const QuizQuestion({
     required this.term,
+    required this.kind,
+    required this.prompt,
     required this.options,
     required this.correctIndex,
   });
 
   final Term term;
+  final QuizKind kind;
+  final String prompt;
   final List<String> options;
   final int correctIndex;
+
+  String get correctAnswer => options[correctIndex];
+
+  /// Giải thích ngắn hiển thị sau khi chọn, giúp người học nhớ vì sao đúng/sai.
+  String get explanation => '${term.acronym} — ${term.shortDefinition}';
 }
 
 /// Kết quả một lần Delta Sync.
@@ -387,14 +650,24 @@ class SyncOutcome {
     this.updated = 0,
     this.deleted = 0,
     this.serverTimestamp = 0,
+    this.partial = false,
   });
 
-  const SyncOutcome.failed() : ok = false, updated = 0, deleted = 0, serverTimestamp = 0;
+  const SyncOutcome.failed()
+    : ok = false,
+      updated = 0,
+      deleted = 0,
+      serverTimestamp = 0,
+      partial = false;
 
   final bool ok;
   final int updated;
   final int deleted;
   final int serverTimestamp;
+
+  /// Mất mạng giữa chừng: đã ghi được một phần lô, con trỏ chưa dịch nên lần
+  /// sau kéo tiếp. Khác với [ok] == false (không lấy được gì).
+  final bool partial;
 }
 
 /// Mức tin cậy của một khái niệm, tính offline từ các mục từ cùng `concept`.

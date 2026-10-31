@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_theme.dart';
 import '../../core/knowledge_graph.dart';
+import '../../core/roadmap_selection.dart';
 import '../../data/glossary_repository.dart';
 import '../../data/models/term.dart';
 import '../detail/term_detail_screen.dart';
@@ -24,34 +25,74 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
   @override
   void initState() {
     super.initState();
+    _career = RoadmapSelection.instance.value;
+    RoadmapSelection.instance.addListener(_onExternalSelection);
     _repo.warmUp().then((_) => _refresh());
   }
 
-  Future<void> _refresh() async {
-    final pct = await _repo.careerProgress(_career);
+  @override
+  void dispose() {
+    RoadmapSelection.instance.removeListener(_onExternalSelection);
+    super.dispose();
+  }
+
+  void _onExternalSelection() {
+    final next = RoadmapSelection.instance.value;
+    if (next == _career) return;
+    setState(() => _career = next);
+    _refresh();
+  }
+
+  void _refresh() {
     if (!mounted) return;
     setState(() {
       _terms = _repo.termsByCareer(_career);
-      _progress = pct;
+      _progress = _repo.careerProgressSync(_career);
       _ready = true;
     });
   }
 
   void _selectCareer(String career) {
+    if (_career == career) return;
     setState(() => _career = career);
+    if (RoadmapSelection.instance.value != career) {
+      RoadmapSelection.instance.value = career;
+    }
     _refresh();
   }
 
   @override
   Widget build(BuildContext context) {
+    final graph = KnowledgeGraph([
+      for (final t in _terms)
+        for (final p in t.prerequisites)
+          if (_terms.any((x) => x.id == p)) [p, t.id],
+    ]);
+    final ordered = _orderedByLayer(_terms, graph);
+    Term? next;
+    for (final t in ordered) {
+      if (!_repo.cachedStudyState(t.id).learned) {
+        next = t;
+        break;
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sơ đồ lộ trình'),
         actions: [
           SegmentedButton<bool>(
             segments: const [
-              ButtonSegment(value: true, label: Text('Sơ đồ'), icon: Icon(Icons.account_tree_outlined)),
-              ButtonSegment(value: false, label: Text('Danh sách'), icon: Icon(Icons.list)),
+              ButtonSegment(
+                value: true,
+                label: Text('Sơ đồ'),
+                icon: Icon(Icons.account_tree_outlined),
+              ),
+              ButtonSegment(
+                value: false,
+                label: Text('Danh sách'),
+                icon: Icon(Icons.list),
+              ),
             ],
             selected: {_graphView},
             onSelectionChanged: (s) => setState(() => _graphView = s.first),
@@ -69,14 +110,16 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: GlossaryRepository.careers.entries
-                      .map((e) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(e.value),
-                              selected: _career == e.key,
-                              onSelected: (_) => _selectCareer(e.key),
-                            ),
-                          ))
+                      .map(
+                        (e) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(e.value),
+                            selected: _career == e.key,
+                            onSelected: (_) => _selectCareer(e.key),
+                          ),
+                        ),
+                      )
                       .toList(),
                 ),
               ),
@@ -85,10 +128,16 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: LinearProgressIndicator(value: _progress / 100, minHeight: 8),
+                      child: LinearProgressIndicator(
+                        value: _progress / 100,
+                        minHeight: 8,
+                      ),
                     ),
                     const SizedBox(width: 12),
-                    Text('$_progress%', style: Theme.of(context).textTheme.labelLarge),
+                    Text(
+                      '$_progress%',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
                   ],
                 ),
               ),
@@ -99,18 +148,175 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
       body: !_ready
           ? const Center(child: CircularProgressIndicator())
           : _terms.isEmpty
-              ? const Center(child: Text('Chưa có thuật ngữ cho lộ trình này.'))
-              : _graphView
-                  ? KnowledgeGraphView(terms: _terms, repo: _repo, onChanged: _refresh)
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _terms.length,
-                      itemBuilder: (context, i) => _MapNodeTile(
-                        term: _terms[i],
-                        repo: _repo,
-                        onChanged: _refresh,
+          ? const Center(child: Text('Chưa có thuật ngữ cho lộ trình này.'))
+          : Column(
+              children: [
+                _CareerSummary(
+                  label: GlossaryRepository.careers[_career]!,
+                  progress: _progress,
+                  counts: _repo.careerCounts(_career),
+                  next: next,
+                  onOpenNext: next == null
+                      ? null
+                      : () async {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  TermDetailScreen(termId: next!.id),
+                            ),
+                          );
+                          _refresh();
+                        },
+                ),
+                Expanded(
+                  child: _graphView
+                      ? KnowledgeGraphView(
+                          terms: _terms,
+                          repo: _repo,
+                          onChanged: _refresh,
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                          itemCount: ordered.length,
+                          itemBuilder: (context, i) => _MapNodeTile(
+                            term: ordered[i],
+                            step: i + 1,
+                            repo: _repo,
+                            onChanged: _refresh,
+                          ),
+                        ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+/// Thứ tự học gợi ý: theo tầng tiên quyết, trong cùng tầng xếp theo tên.
+List<Term> _orderedByLayer(List<Term> terms, KnowledgeGraph graph) {
+  final byId = {for (final t in terms) t.id: t};
+  final layers = graph.layers(byId.keys);
+  final out = <Term>[];
+  final keys = layers.keys.toList()..sort();
+  for (final layer in keys) {
+    final ids = [...layers[layer]!]
+      ..sort(
+        (a, b) => byId[a]!.acronym.toLowerCase().compareTo(
+          byId[b]!.acronym.toLowerCase(),
+        ),
+      );
+    out.addAll(ids.map((id) => byId[id]!));
+  }
+  return out;
+}
+
+/// Tóm tắt lộ trình: tiến độ + gợi ý thuật ngữ kế tiếp, để người dùng không
+/// phải tự dò trên sơ đồ lớn.
+class _CareerSummary extends StatelessWidget {
+  const _CareerSummary({
+    required this.label,
+    required this.progress,
+    required this.counts,
+    required this.next,
+    this.onOpenNext,
+  });
+
+  final String label;
+  final int progress;
+  final (int done, int total) counts;
+  final Term? next;
+  final VoidCallback? onOpenNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Card(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.flag_outlined, size: 18, color: scheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                Text(
+                  '${counts.$1}/${counts.$2} · $progress%',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: progress / 100,
+                minHeight: 7,
+                backgroundColor: scheme.surfaceContainerHighest,
+              ),
+            ),
+            if (next != null) ...[
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: onOpenNext,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.play_circle_outline,
+                        size: 18,
+                        color: AppTheme.tier2,
                       ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Học tiếp: ${next!.acronym}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.emoji_events_outlined,
+                    size: 18,
+                    color: AppTheme.tier3,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Bạn đã hoàn thành toàn bộ lộ trình này.',
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -119,7 +325,12 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
 /// pan/zoom). Chạm nút -> card Tầng 1, highlight nhánh liên quan và nhảy dọc
 /// cạnh tiên quyết mà không phải rời sơ đồ.
 class KnowledgeGraphView extends StatefulWidget {
-  const KnowledgeGraphView({super.key, required this.terms, required this.repo, required this.onChanged});
+  const KnowledgeGraphView({
+    super.key,
+    required this.terms,
+    required this.repo,
+    required this.onChanged,
+  });
 
   final List<Term> terms;
   final GlossaryRepository repo;
@@ -173,9 +384,15 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
       }
     });
 
-    final selected = (_selectedId != null && byId.containsKey(_selectedId)) ? _selectedId! : null;
-    final ancestors = selected == null ? const <String>{} : graph.prereqClosure(selected);
-    final descendants = selected == null ? const <String>{} : graph.dependentClosure(selected);
+    final selected = (_selectedId != null && byId.containsKey(_selectedId))
+        ? _selectedId!
+        : null;
+    final ancestors = selected == null
+        ? const <String>{}
+        : graph.prereqClosure(selected);
+    final descendants = selected == null
+        ? const <String>{}
+        : graph.dependentClosure(selected);
 
     return Stack(
       children: [
@@ -197,7 +414,9 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
                           edges: edges,
                           nodeW: _nodeW,
                           nodeH: _nodeH,
-                          branch: selected == null ? null : graph.branchOf(selected),
+                          branch: selected == null
+                              ? null
+                              : graph.branchOf(selected),
                         ),
                       ),
                     ),
@@ -208,6 +427,9 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
                         child: _GraphNode(
                           term: t,
                           learned: widget.repo.cachedStudyState(t.id).learned,
+                          needsReview: widget.repo
+                              .cachedStudyState(t.id)
+                              .needsReview,
                           role: _roleOf(t.id, selected, ancestors, descendants),
                           width: _nodeW,
                           height: _nodeH,
@@ -237,7 +459,12 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
     );
   }
 
-  static _NodeRole _roleOf(String id, String? selected, Set<String> ancestors, Set<String> descendants) {
+  static _NodeRole _roleOf(
+    String id,
+    String? selected,
+    Set<String> ancestors,
+    Set<String> descendants,
+  ) {
     if (selected == null) return _NodeRole.plain;
     if (id == selected) return _NodeRole.selected;
     if (ancestors.contains(id)) return _NodeRole.ancestor;
@@ -247,7 +474,11 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
 
   /// FR-MAP-02: card nhanh Tầng 1; chạm chip tiên quyết / kế tiếp thì đổi trọng
   /// tâm ngay trên sơ đồ, chỉ rời sơ đồ khi người dùng bấm "Xem chi tiết 3 tầng".
-  Future<void> _openQuickCard(Map<String, Term> byId, KnowledgeGraph graph, Term term) async {
+  Future<void> _openQuickCard(
+    Map<String, Term> byId,
+    KnowledgeGraph graph,
+    Term term,
+  ) async {
     var current = term;
     while (mounted) {
       final move = await showModalBottomSheet<_SheetMove>(
@@ -259,8 +490,10 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
           repo: widget.repo,
           prerequisites: _neighbors(graph.prerequisitesOf(current.id), byId),
           unlocks: _neighbors(graph.dependentsOf(current.id), byId),
-          onNavigate: (next) => Navigator.of(sheetCtx).pop(_SheetMove.to(next.id)),
-          onOpenDetail: () => Navigator.of(sheetCtx).pop(const _SheetMove.detail()),
+          onNavigate: (next) =>
+              Navigator.of(sheetCtx).pop(_SheetMove.to(next.id)),
+          onOpenDetail: () =>
+              Navigator.of(sheetCtx).pop(const _SheetMove.detail()),
           onToggleLearned: () async {
             await widget.repo.toggleLearned(current.id);
             widget.onChanged();
@@ -270,8 +503,11 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
       if (move == null || !mounted) return;
       if (move.toDetail) {
         await Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => TermDetailScreen(termId: current.id)),
+          MaterialPageRoute(
+            builder: (_) => TermDetailScreen(termId: current.id),
+          ),
         );
+        widget.onChanged();
         return;
       }
       final next = byId[move.termId];
@@ -282,9 +518,9 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
   }
 
   static List<Term> _neighbors(Set<String> ids, Map<String, Term> byId) => [
-        for (final id in ids)
-          if (byId[id] != null) byId[id]!,
-      ];
+    for (final id in ids)
+      if (byId[id] != null) byId[id]!,
+  ];
 }
 
 /// Trọng tâm highlight của sơ đồ khi một node được chọn.
@@ -303,6 +539,7 @@ class _GraphNode extends StatelessWidget {
   const _GraphNode({
     required this.term,
     required this.learned,
+    required this.needsReview,
     required this.role,
     required this.width,
     required this.height,
@@ -311,6 +548,7 @@ class _GraphNode extends StatelessWidget {
 
   final Term term;
   final bool learned;
+  final bool needsReview;
   final _NodeRole role;
   final double width, height;
   final VoidCallback onTap;
@@ -334,15 +572,30 @@ class _GraphNode extends StatelessWidget {
           width: width,
           height: height,
           decoration: BoxDecoration(
-            color: accent?.withValues(alpha: 0.14) ??
-                (learned ? AppTheme.tier2.withValues(alpha: 0.16) : scheme.surface),
+            color:
+                accent?.withValues(alpha: 0.14) ??
+                (learned
+                    ? AppTheme.tier2.withValues(alpha: 0.16)
+                    : (needsReview
+                          ? AppTheme.warning.withValues(alpha: 0.12)
+                          : scheme.surface)),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: accent ?? (learned ? AppTheme.tier2 : scheme.outlineVariant),
-              width: accent != null ? 2.4 : (learned ? 2 : 1),
+              color:
+                  accent ??
+                  (learned
+                      ? AppTheme.tier2
+                      : (needsReview
+                            ? AppTheme.warning
+                            : scheme.outlineVariant)),
+              width: accent != null ? 2.4 : ((learned || needsReview) ? 2 : 1),
             ),
             boxShadow: [
-              BoxShadow(color: scheme.shadow.withValues(alpha: 0.08), blurRadius: 6, offset: const Offset(0, 2)),
+              BoxShadow(
+                color: scheme.shadow.withValues(alpha: 0.08),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
             ],
           ),
           alignment: Alignment.center,
@@ -350,11 +603,19 @@ class _GraphNode extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(term.acronym,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              if (learned) const Icon(Icons.check_circle, size: 12, color: AppTheme.tier2),
+              Text(
+                term.acronym,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              if (learned)
+                const Icon(Icons.check_circle, size: 12, color: AppTheme.tier2)
+              else if (needsReview)
+                const Icon(Icons.refresh, size: 12, color: AppTheme.warning),
             ],
           ),
         ),
@@ -386,7 +647,8 @@ class _EdgePainter extends CustomPainter {
     for (final e in edges) {
       final from = pos[e[0]], to = pos[e[1]];
       if (from == null || to == null) continue;
-      final onBranch = branch != null && branch!.contains(e[0]) && branch!.contains(e[1]);
+      final onBranch =
+          branch != null && branch!.contains(e[0]) && branch!.contains(e[1]);
       final paint = Paint()
         ..color = onBranch ? AppTheme.primary : _idle
         ..strokeWidth = onBranch ? 2.4 : 1.5
@@ -438,7 +700,13 @@ class _QuickCardSheet extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text(term.acronym, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  term.acronym,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -449,8 +717,12 @@ class _QuickCardSheet extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(_learned ? Icons.check_circle : Icons.radio_button_unchecked,
-                      color: _learned ? AppTheme.tier2 : null),
+                  icon: Icon(
+                    _learned
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    color: _learned ? AppTheme.tier2 : null,
+                  ),
                   tooltip: _learned ? 'Bỏ đánh dấu đã học' : 'Đánh dấu đã học',
                   onPressed: () async {
                     await onToggleLearned();
@@ -465,13 +737,21 @@ class _QuickCardSheet extends StatelessWidget {
               const SizedBox(height: 12),
               _BranchLabel('Cần biết trước', Icons.arrow_back, AppTheme.tier1),
               const SizedBox(height: 6),
-              _BranchChips(terms: prerequisites, tone: AppTheme.tier1, onTap: onNavigate),
+              _BranchChips(
+                terms: prerequisites,
+                tone: AppTheme.tier1,
+                onTap: onNavigate,
+              ),
             ],
             if (unlocks.isNotEmpty) ...[
               const SizedBox(height: 12),
               _BranchLabel('Mở khóa cho', Icons.arrow_forward, AppTheme.tier3),
               const SizedBox(height: 6),
-              _BranchChips(terms: unlocks, tone: AppTheme.tier3, onTap: onNavigate),
+              _BranchChips(
+                terms: unlocks,
+                tone: AppTheme.tier3,
+                onTap: onNavigate,
+              ),
             ],
             const SizedBox(height: 16),
             Align(
@@ -500,16 +780,20 @@ class _BranchLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        children: [
-          Icon(icon, size: 14, color: tone),
-          const SizedBox(width: 6),
-          Text(text, style: Theme.of(context).textTheme.labelLarge),
-        ],
-      );
+    children: [
+      Icon(icon, size: 14, color: tone),
+      const SizedBox(width: 6),
+      Text(text, style: Theme.of(context).textTheme.labelLarge),
+    ],
+  );
 }
 
 class _BranchChips extends StatelessWidget {
-  const _BranchChips({required this.terms, required this.tone, required this.onTap});
+  const _BranchChips({
+    required this.terms,
+    required this.tone,
+    required this.onTap,
+  });
 
   final List<Term> terms;
   final Color tone;
@@ -517,50 +801,94 @@ class _BranchChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Wrap(
-        spacing: 6,
-        children: terms
-            .map((p) => ActionChip(
-                  label: Text(p.acronym),
-                  visualDensity: VisualDensity.compact,
-                  avatar: Icon(Icons.call_made, size: 12, color: tone),
-                  backgroundColor: tone.withValues(alpha: 0.10),
-                  onPressed: () => onTap(p),
-                ))
-            .toList(),
-      );
+    spacing: 6,
+    children: terms
+        .map(
+          (p) => ActionChip(
+            label: Text(p.acronym),
+            visualDensity: VisualDensity.compact,
+            avatar: Icon(Icons.call_made, size: 12, color: tone),
+            backgroundColor: tone.withValues(alpha: 0.10),
+            onPressed: () => onTap(p),
+          ),
+        )
+        .toList(),
+  );
 }
-
 
 /// FR-MAP-02: nút thuật ngữ trên cây -> xem nhanh Tầng 1 + highlight prerequisites.
 class _MapNodeTile extends StatelessWidget {
-  const _MapNodeTile({required this.term, required this.repo, required this.onChanged});
+  const _MapNodeTile({
+    required this.term,
+    required this.step,
+    required this.repo,
+    required this.onChanged,
+  });
 
   final Term term;
+  final int step;
   final GlossaryRepository repo;
   final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
     final state = repo.cachedStudyState(term.id);
+    final scheme = Theme.of(context).colorScheme;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => TermDetailScreen(termId: term.id)),
+        onTap: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => TermDetailScreen(termId: term.id),
+            ),
+          );
+          onChanged();
+        },
+        leading: SizedBox(
+          width: 40,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CircleAvatar(
+                radius: 17,
+                backgroundColor: state.learned
+                    ? AppTheme.tier2.withValues(alpha: 0.14)
+                    : scheme.surfaceContainerHighest,
+                child: state.learned
+                    ? const Icon(Icons.check, size: 16, color: AppTheme.tier2)
+                    : (state.needsReview
+                          ? const Icon(
+                              Icons.refresh,
+                              size: 16,
+                              color: AppTheme.warning,
+                            )
+                          : Text(
+                              step.toString(),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            )),
+              ),
+            ],
+          ),
         ),
-        leading: Icon(
-          state.learned ? Icons.check_circle : Icons.radio_button_unchecked,
-          color: state.learned ? AppTheme.tier2 : Theme.of(context).colorScheme.outline,
+        title: Text(
+          term.acronym,
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        title: Text(term.acronym, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(term.shortDefinition,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              term.shortDefinition,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             if (term.prerequisites.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -569,11 +897,13 @@ class _MapNodeTile extends StatelessWidget {
                   children: term.prerequisites
                       .map((p) => repo.termById(p))
                       .whereType<Term>()
-                      .map((p) => Chip(
-                            label: Text('cần: ${p.acronym}'),
-                            visualDensity: VisualDensity.compact,
-                            labelStyle: Theme.of(context).textTheme.labelSmall,
-                          ))
+                      .map(
+                        (p) => Chip(
+                          label: Text('cần: ${p.acronym}'),
+                          visualDensity: VisualDensity.compact,
+                          labelStyle: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      )
                       .toList(),
                 ),
               ),

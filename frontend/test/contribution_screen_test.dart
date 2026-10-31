@@ -22,7 +22,11 @@ class _MemoryStore extends ContributorNameStore {
 }
 
 void main() {
-  Future<void> pumpScreen(WidgetTester tester, http.Client client, {ContributorNameStore? store}) async {
+  Future<void> pumpScreen(
+    WidgetTester tester,
+    http.Client client, {
+    ContributorNameStore? store,
+  }) async {
     tester.view.physicalSize = const Size(1200, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -44,11 +48,17 @@ void main() {
     await fill(tester, 'Tên người đóng góp', 'Trần Minh');
     await fill(tester, 'Từ viết tắt (Tầng 1)', 'gRPC');
     await fill(tester, 'Tên đầy đủ tiếng Anh', 'gRPC Remote Procedure Call');
-    await fill(tester, 'Định nghĩa ngắn (Tầng 1)', 'Framework RPC mã nguồn mở.');
+    await fill(
+      tester,
+      'Định nghĩa ngắn (Tầng 1)',
+      'Framework RPC mã nguồn mở.',
+    );
     await tester.pump();
   }
 
-  testWidgets('form trống bị chặn: không gọi API, hiện lỗi validation', (tester) async {
+  testWidgets('form trống bị chặn: không gọi API, hiện lỗi validation', (
+    tester,
+  ) async {
     var calls = 0;
     await pumpScreen(
       tester,
@@ -66,7 +76,9 @@ void main() {
     expect(find.textContaining('tối thiểu 2 ký tự'), findsOneWidget);
   });
 
-  testWidgets('form hợp lệ gửi đúng endpoint + body snake_case', (tester) async {
+  testWidgets('form hợp lệ gửi đúng endpoint + body snake_case', (
+    tester,
+  ) async {
     http.Request? captured;
     await pumpScreen(
       tester,
@@ -92,7 +104,9 @@ void main() {
     expect(body['tier_1_acronym'], 'gRPC');
   });
 
-  testWidgets('gửi thành công: hiện mã theo dõi, xóa nội dung, giữ tên', (tester) async {
+  testWidgets('gửi thành công: hiện mã theo dõi, xóa nội dung, giữ tên', (
+    tester,
+  ) async {
     final store = _MemoryStore();
     await pumpScreen(
       tester,
@@ -115,10 +129,20 @@ void main() {
 
     expect(find.text('Đã nhận đề xuất'), findsOneWidget);
     expect(find.textContaining('c_deadbeef'), findsOneWidget);
-    expect(store.written, 'Trần Minh', reason: 'FR-COMM-03: tên contributor phải được lưu lại');
+    expect(
+      store.written,
+      'Trần Minh',
+      reason: 'FR-COMM-03: tên contributor phải được lưu lại',
+    );
 
-    final acronymField = tester.widget<TextFormField>(find.widgetWithText(TextFormField, 'Từ viết tắt (Tầng 1)').last);
-    expect(acronymField.controller!.text, isEmpty, reason: 'nội dung vừa gửi phải được dọn sạch');
+    final acronymField = tester.widget<TextFormField>(
+      find.widgetWithText(TextFormField, 'Từ viết tắt (Tầng 1)').last,
+    );
+    expect(
+      acronymField.controller!.text,
+      isEmpty,
+      reason: 'nội dung vừa gửi phải được dọn sạch',
+    );
 
     await tester.tap(find.text('Gửi đề xuất khác'));
     await tester.pumpAndSettle();
@@ -126,14 +150,24 @@ void main() {
   });
 
   testWidgets('tên đã lưu được điền sẵn cho lần sau', (tester) async {
-    await pumpScreen(tester, MockClient((req) async => http.Response('{}', 201)), store: _MemoryStore('Nguyen Van A'));
+    await pumpScreen(
+      tester,
+      MockClient((req) async => http.Response('{}', 201)),
+      store: _MemoryStore('Nguyen Van A'),
+    );
 
     expect(find.text('Nguyen Van A'), findsOneWidget);
   });
 
-  testWidgets('mất mạng: báo lỗi, không chuyển sang trạng thái đã gửi', (tester) async {
+  testWidgets('mất mạng: báo lỗi, không chuyển sang trạng thái đã gửi', (
+    tester,
+  ) async {
     final store = _MemoryStore();
-    await pumpScreen(tester, MockClient((req) async => throw Exception('offline')), store: store);
+    await pumpScreen(
+      tester,
+      MockClient((req) async => throw Exception('offline')),
+      store: store,
+    );
 
     await fillValidForm(tester);
     await tester.tap(find.widgetWithText(FilledButton, 'Gửi đề xuất'));

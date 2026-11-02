@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_theme.dart';
+import '../../core/connectivity_status.dart';
+import '../../core/sync_status_pill.dart';
 import '../../data/glossary_repository.dart';
 import '../../data/models/term.dart';
 import '../contribute/contribution_screen.dart';
@@ -34,7 +36,6 @@ class _SearchScreenState extends State<SearchScreen> {
   List<SearchResult> _results = const [];
   bool _ready = false;
   bool _syncing = false;
-  DateTime? _lastSync;
 
   @override
   void initState() {
@@ -51,7 +52,6 @@ class _SearchScreenState extends State<SearchScreen> {
         }
       });
     });
-    _loadSyncTime();
     _repo.progressRevision.addListener(_onProgressChanged);
   }
 
@@ -61,12 +61,6 @@ class _SearchScreenState extends State<SearchScreen> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _loadSyncTime() async {
-    final at = await _repo.lastSyncAt();
-    if (!mounted) return;
-    setState(() => _lastSync = at);
-  }
-
   /// Delta Sync: kéo cập nhật từ server về SQLite (khi có mạng).
   Future<void> _sync() async {
     if (_syncing) return;
@@ -74,7 +68,7 @@ class _SearchScreenState extends State<SearchScreen> {
     final res = await _repo.syncNow();
     if (!mounted) return;
     setState(() => _syncing = false);
-    await _loadSyncTime();
+    ConnectivityStatus.instance.checkNow();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -147,22 +141,6 @@ class _SearchScreenState extends State<SearchScreen> {
     return multi == 0
         ? base
         : '$base · ${_groupThousands(multi)} khái niệm có ≥2 nguồn xác nhận';
-  }
-
-  String _syncCaption() {
-    if (_lastSync == null) {
-      return 'Chưa đồng bộ — đang dùng bộ dữ liệu đóng gói trong app';
-    }
-    return 'Đồng bộ gần nhất: ${_ago(_lastSync!)}';
-  }
-
-  static String _ago(DateTime at) {
-    final d = DateTime.now().difference(at);
-    if (d.inMinutes < 1) return 'vừa xong';
-    if (d.inHours < 1) return '${d.inMinutes} phút trước';
-    if (d.inDays < 1) return '${d.inHours} giờ trước';
-    if (d.inDays < 30) return '${d.inDays} ngày trước';
-    return at.toLocal().toString().split(' ').first;
   }
 
   @override
@@ -242,12 +220,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      _syncCaption(),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
+                    child: SyncStatusPill(onSync: _sync, syncing: _syncing),
                   ),
                 ],
               ),

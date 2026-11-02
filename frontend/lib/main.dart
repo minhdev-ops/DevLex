@@ -7,6 +7,7 @@ import 'core/api_config.dart';
 import 'core/app_theme.dart';
 import 'core/auto_sync.dart';
 import 'core/consent.dart';
+import 'core/connectivity_status.dart';
 import 'core/moderator_config.dart';
 import 'core/theme_controller.dart';
 import 'features/home/home_shell.dart';
@@ -58,7 +59,11 @@ class _ItGlossaryAppState extends State<ItGlossaryApp> {
     Consent.instance.load();
     _autoSync.attach();
     // Lần đầu mở app (hoặc dữ liệu đã cũ): kéo delta trong im lặng.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _autoSync.maybeSync());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoSync.maybeSync();
+      // Dò kết nối để badge online/offline hiển thị đúng ngay từ đầu.
+      ConnectivityStatus.instance.checkNow();
+    });
   }
 
   @override

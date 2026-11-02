@@ -26,24 +26,31 @@ class SyncStatusPill extends StatefulWidget {
 
 class _SyncStatusPillState extends State<SyncStatusPill> {
   DateTime? _lastSync;
+  final _repo = GlossaryRepository.instance;
 
   @override
   void initState() {
     super.initState();
     _load();
     ConnectivityStatus.instance.online.addListener(_onChanged);
+    // Đồng bộ chạy ngầm (auto-sync / nút Đồng bộ) xong sẽ bump progressRevision:
+    // nghe để viên cập nhật "đã đồng bộ X trước" ngay, không bị kẹt ở trạng thái cũ.
+    _repo.progressRevision.addListener(_onSyncTick);
   }
 
   @override
   void dispose() {
     ConnectivityStatus.instance.online.removeListener(_onChanged);
+    _repo.progressRevision.removeListener(_onSyncTick);
     super.dispose();
   }
 
   void _onChanged() => setState(() {});
 
+  void _onSyncTick() => _load();
+
   Future<void> _load() async {
-    final at = await GlossaryRepository.instance.lastSyncAt();
+    final at = await _repo.lastSyncAt();
     if (mounted) setState(() => _lastSync = at);
   }
 
@@ -54,13 +61,18 @@ class _SyncStatusPillState extends State<SyncStatusPill> {
     final synced = _lastSync != null;
 
     final Color dot = online ? scheme.primary : scheme.outline;
-    final String label = widget.syncing
-        ? 'Đang đồng bộ…'
-        : synced
-            ? (online
-                ? 'Online · đã đồng bộ ' + _ago(_lastSync!)
-                : 'Đã đồng bộ ' + _ago(_lastSync!))
-            : 'Offline · dùng bản trong máy';
+    final String label;
+    if (widget.syncing) {
+      label = 'Đang đồng bộ…';
+    } else if (online) {
+      label = synced
+          ? 'Online · đã đồng bộ ' + _ago(_lastSync!)
+          : 'Online · chạm để đồng bộ';
+    } else {
+      label = synced
+          ? 'Offline · bản trong máy ' + _ago(_lastSync!)
+          : 'Offline · dùng bản trong máy';
+    }
 
     return InkWell(
       borderRadius: BorderRadius.circular(20),
@@ -75,7 +87,9 @@ class _SyncStatusPillState extends State<SyncStatusPill> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: online ? scheme.primaryContainer : scheme.surfaceContainerHighest,
+          color: online
+              ? scheme.primaryContainer
+              : scheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(

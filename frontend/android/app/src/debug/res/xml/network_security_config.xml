@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CHỈ áp dụng cho build DEBUG: cho phép HTTP tới backend chạy local khi dev.
+     Bản release dùng HTTPS, không bị ảnh hưởng bởi file này. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

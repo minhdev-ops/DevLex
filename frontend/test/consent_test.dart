@@ -41,6 +41,17 @@ void main() {
     expect(Consent.instance.accepted.value, isFalse);
   });
 
+  test('load() gọi song song dùng chung một lần đọc', () async {
+    // main() và HomeShell cùng gọi load(): nếu mỗi lần trả về một Future mới,
+    // bên gọi sau thấy accepted == false lúc DB còn đang mở và hỏi lại người
+    // dùng ở mọi cold start.
+    final first = Consent.instance.load();
+    final second = Consent.instance.load();
+
+    expect(identical(first, second), isTrue);
+    await first;
+  });
+
   testWidgets('chính sách hiển thị đủ các mục bắt buộc', (tester) async {
     // ListView chỉ dựng các mục trong khung nhìn: dùng màn cao để thấy hết.
     tester.view.physicalSize = const Size(1200, 4000);

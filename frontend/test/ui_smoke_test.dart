@@ -33,7 +33,7 @@ void main() {
   });
 
   Future<void> pumpPhone(WidgetTester tester, Widget home) async {
-    tester.view.physicalSize = const Size(390, 844);
+    tester.view.physicalSize = const Size(360, 740);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MaterialApp(theme: AppTheme.light(), home: home));
@@ -73,6 +73,13 @@ void main() {
     await pumpPhone(tester, const SettingsScreen());
 
     expect(find.text('Cài đặt & giới thiệu'), findsOneWidget);
+
+    // Màn 360dp: mục "Máy chủ đồng bộ" nằm dưới màn hình đầu tiên.
+    await tester.scrollUntilVisible(
+      find.text('Máy chủ đồng bộ'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Máy chủ đồng bộ'), findsOneWidget);
 
     // Phần nguồn dữ liệu nằm dưới màn hình đầu tiên -> phải cuộn tới.

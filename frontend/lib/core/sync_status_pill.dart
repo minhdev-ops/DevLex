@@ -104,7 +104,16 @@ class _SyncStatusPillState extends State<SyncStatusPill> {
             else
               Icon(Icons.circle, size: 9, color: dot),
             const SizedBox(width: 6),
-            Text(label, style: Theme.of(context).textTheme.labelSmall),
+            // Nhãn dài ("Online · đã đồng bộ 30 phút trước") tràn ở màn 360dp:
+            // co lại và cắt bằng dấu ba chấm thay vì vẽ đè ra ngoài pill.
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            ),
           ],
         ),
       ),

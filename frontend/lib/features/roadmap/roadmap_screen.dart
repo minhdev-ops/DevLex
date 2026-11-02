@@ -77,21 +77,24 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
       }
     }
 
+    // Màn hẹp (360dp): bỏ icon trong segmented button để AppBar không tràn.
+    final compact = MediaQuery.sizeOf(context).width < 400;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sơ đồ lộ trình'),
         actions: [
           SegmentedButton<bool>(
-            segments: const [
+            segments: [
               ButtonSegment(
                 value: true,
-                label: Text('Sơ đồ'),
-                icon: Icon(Icons.account_tree_outlined),
+                label: const Text('Sơ đồ'),
+                icon: compact ? null : const Icon(Icons.account_tree_outlined),
               ),
               ButtonSegment(
                 value: false,
-                label: Text('Danh sách'),
-                icon: Icon(Icons.list),
+                label: const Text('Danh sách'),
+                icon: compact ? null : const Icon(Icons.list),
               ),
             ],
             selected: {_graphView},

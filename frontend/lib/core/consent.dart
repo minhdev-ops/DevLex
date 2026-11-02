@@ -17,18 +17,28 @@ class Consent {
 
   final ValueNotifier<bool> accepted = ValueNotifier<bool>(false);
 
-  bool _loaded = false;
+  /// Future của lần đọc đang chạy. Nhiều nơi gọi [load] cùng lúc (main và
+  /// HomeShell) phải chờ chung một lần đọc, nếu không bên gọi sau sẽ thấy
+  /// accepted == false lúc DB còn đang mở và hỏi lại người dùng mỗi cold start.
+  Future<void>? _pending;
 
-  bool get isLoaded => _loaded;
+  bool get isLoaded => _pending != null;
 
-  Future<void> load() async {
-    if (_loaded) return;
-    _loaded = true;
+  Future<void> load() {
+    final pending = _pending;
+    if (pending != null) return pending;
+    final future = _read();
+    _pending = future;
+    return future;
+  }
+
+  Future<void> _read() async {
     try {
       final saved = await GlossaryDatabase.instance.getMeta(metaKey);
       accepted.value = saved == 'true';
     } catch (_) {
-      // Chưa mở được DB: coi như chưa đồng ý, banner sẽ hỏi lại sau.
+      // Chưa mở được DB: coi như chưa đồng ý và cho phép lần gọi sau thử lại.
+      _pending = null;
     }
   }
 

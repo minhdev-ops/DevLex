@@ -514,14 +514,25 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
     final byId = {for (final t in terms) t.id: t};
 
     // cạnh chỉ có nghĩa khi cả hai đầu nằm trong lộ trình đang xem
+    // Cạnh có hướng: tiên quyết -> phụ thuộc (vẽ mũi tên).
     final edges = <List<String>>[
       for (final t in terms)
         for (final p in t.prerequisites)
           if (byId.containsKey(p)) [p, t.id],
     ];
+    // Liên quan: phần lớn kho dữ liệu không có cạnh tiên quyết, chỉ có liên
+    // quan, nên nếu bỏ qua thì sơ đồ trơ ra các ô rời rạc không có hướng.
+    final related = <List<String>>[
+      for (final t in terms)
+        for (final r in t.relatedTerms)
+          if (byId.containsKey(r) && r != t.id && t.id.compareTo(r) < 0)
+            [t.id, r],
+    ];
     final graph = KnowledgeGraph(edges);
 
     final pos = <String, Offset>{};
+    final columnFirst = <String>[];
+    final columnLast = <String>[];
     var maxRow = 0;
     var maxCol = 0;
     // Xếp mỗi tầng thành cột, nhưng cắt cột sau 10 nút: kho thuật ngữ phần lớn
@@ -547,10 +558,20 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
         for (var r = 0; r < chunk.length; r++) {
           pos[chunk[r]] = Offset(_pad + column * _xGap, _pad + r * _yGap);
         }
+        columnFirst.add(chunk.first);
+        columnLast.add(chunk.last);
         column++;
       }
     }
     maxCol = column == 0 ? 0 : column - 1;
+
+    // Không có cạnh tiên quyết nào trong tập này (phổ biến với kho hiện tại):
+    // nối các cột bằng mũi tên để người đọc vẫn thấy chiều học trái -> phải.
+    if (edges.isEmpty) {
+      for (var i = 0; i + 1 < columnFirst.length; i++) {
+        edges.add([columnFirst[i], columnFirst[i + 1]]);
+      }
+    }
 
     final canvas = Size(
       _pad * 2 + (maxCol + 1) * _xGap,
@@ -598,6 +619,7 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
                       painter: _EdgePainter(
                         pos: pos,
                         edges: edges,
+                        related: related,
                         nodeW: _nodeW,
                         nodeH: _nodeH,
                         branch: selected == null
@@ -633,7 +655,7 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
         if (_showHint)
           const Positioned(
             left: 12,
-            top: 12,
+            bottom: 70,
             child: IgnorePointer(child: _MapHint()),
           ),
         Positioned(
@@ -748,7 +770,7 @@ class _MapHint extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      constraints: const BoxConstraints(maxWidth: 280),
+      constraints: const BoxConstraints(maxWidth: 300),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.94),
@@ -765,8 +787,8 @@ class _MapHint extends StatelessWidget {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              'Kéo để di chuyển · Chụm 2 ngón để thu phóng',
-              maxLines: 1,
+              'Kéo để di chuyển · Chụm 2 ngón để thu phóng · mũi tên chỉ chiều học',
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: scheme.onSurfaceVariant,
@@ -884,22 +906,44 @@ class _EdgePainter extends CustomPainter {
   const _EdgePainter({
     required this.pos,
     required this.edges,
+    this.related = const [],
     required this.nodeW,
     required this.nodeH,
     this.branch,
   });
 
   final Map<String, Offset> pos;
+
+  /// Cạnh có hướng: [từ, đến] theo tiên quyết.
   final List<List<String>> edges;
+
+  /// Cạnh liên quan (không hướng), vẽ nét đứt mảnh hơn.
+  final List<List<String>> related;
+
   final double nodeW, nodeH;
 
   /// Hai đầu cùng nằm trong nhánh đang xem thì cạnh được tô đậm.
   final Set<String>? branch;
 
   static const _idle = Color(0xFF9AA0A6);
+  static const _arrow = 7.0;
 
   @override
   void paint(Canvas canvas, Size size) {
+    for (final e in related) {
+      final from = pos[e[0]], to = pos[e[1]];
+      if (from == null || to == null) continue;
+      _drawLink(
+        canvas,
+        from,
+        to,
+        Paint()
+          ..color = _idle.withValues(alpha: 0.45)
+          ..strokeWidth = 1,
+        dashed: true,
+      );
+    }
+
     for (final e in edges) {
       final from = pos[e[0]], to = pos[e[1]];
       if (from == null || to == null) continue;
@@ -907,23 +951,60 @@ class _EdgePainter extends CustomPainter {
           branch != null && branch!.contains(e[0]) && branch!.contains(e[1]);
       final paint = Paint()
         ..color = onBranch ? AppTheme.primary : _idle
-        ..strokeWidth = onBranch ? 2.4 : 1.5
+        ..strokeWidth = onBranch ? 2.4 : 1.6
         ..style = PaintingStyle.stroke;
-      final start = Offset(from.dx + nodeW, from.dy + nodeH / 2);
-      final end = Offset(to.dx, to.dy + nodeH / 2);
-      final mid = (start.dx + end.dx) / 2;
-      final path = Path()
-        ..moveTo(start.dx, start.dy)
-        ..cubicTo(mid, start.dy, mid, end.dy, end.dx, end.dy);
-      canvas.drawPath(path, paint);
-      // mũi tên nhỏ ở đầu đến
-      canvas.drawCircle(end, 2.5, Paint()..color = paint.color);
+      final end = _drawLink(canvas, from, to, paint);
+      _drawArrowHead(canvas, end, paint.color);
     }
+  }
+
+  /// Vẽ đường nối từ mép phải nút nguồn tới mép trái nút đích, trả về điểm cuối.
+  Offset _drawLink(
+    Canvas canvas,
+    Offset from,
+    Offset to,
+    Paint paint, {
+    bool dashed = false,
+  }) {
+    final start = Offset(from.dx + nodeW, from.dy + nodeH / 2);
+    final end = Offset(to.dx, to.dy + nodeH / 2);
+    final mid = (start.dx + end.dx) / 2;
+    final path = Path()
+      ..moveTo(start.dx, start.dy)
+      ..cubicTo(mid, start.dy, mid, end.dy, end.dx, end.dy);
+
+    if (!dashed) {
+      canvas.drawPath(path, paint);
+      return end;
+    }
+    // Nét đứt: cắt đường cong thành từng đoạn ngắn.
+    for (final metric in path.computeMetrics()) {
+      var d = 0.0;
+      while (d < metric.length) {
+        final next = (d + 6).clamp(0.0, metric.length);
+        canvas.drawPath(metric.extractPath(d, next), paint);
+        d = next + 5;
+      }
+    }
+    return end;
+  }
+
+  /// Mũi tên chỉ chiều học: từ tiên quyết sang thuật ngữ phụ thuộc.
+  void _drawArrowHead(Canvas canvas, Offset tip, Color color) {
+    final path = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo(tip.dx - _arrow, tip.dy - _arrow * 0.55)
+      ..lineTo(tip.dx - _arrow, tip.dy + _arrow * 0.55)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
   }
 
   @override
   bool shouldRepaint(covariant _EdgePainter old) =>
-      old.pos != pos || old.edges != edges || old.branch != branch;
+      old.pos != pos ||
+      old.edges != edges ||
+      old.related != related ||
+      old.branch != branch;
 }
 
 class _QuickCardSheet extends StatelessWidget {

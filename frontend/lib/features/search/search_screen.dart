@@ -585,7 +585,8 @@ class _HomeDashboard extends StatelessWidget {
         const SizedBox(height: 20),
         const _SectionTitle(title: 'Lộ trình nghề nghiệp'),
         const SizedBox(height: 8),
-        for (final entry in GlossaryRepository.careers.entries) ...[
+        // Chỉ 4 lộ trình đầu: 13 thẻ sẽ đẩy hết nội dung khác xuống dưới.
+        for (final entry in GlossaryRepository.careers.entries.take(4)) ...[
           _CareerProgressCard(
             label: entry.value,
             progress: repo.careerProgressSync(entry.key),
@@ -602,6 +603,17 @@ class _HomeDashboard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
         ],
+        if (GlossaryRepository.careers.length > 4)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: onNavigateTab == null ? null : () => onNavigateTab!(1),
+              icon: const Icon(Icons.route_outlined, size: 18),
+              label: Text(
+                'Xem tất cả ${GlossaryRepository.careers.length} lộ trình',
+              ),
+            ),
+          ),
         const SizedBox(height: 12),
         const _SectionTitle(title: 'Thuật ngữ phổ biến'),
         const SizedBox(height: 8),

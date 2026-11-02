@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/fuzzy.dart';
 import '../core/study_stats.dart';
+import 'career_tracks.dart';
 import '../core/sync_normalizer.dart';
 import '../core/trust.dart';
 import 'api_client.dart';
@@ -39,6 +40,10 @@ class GlossaryRepository {
   static final GlossaryRepository instance = GlossaryRepository._();
 
   List<Term> _terms = const [];
+
+  /// Cache theo lộ trình: dashboard và màn Lộ trình gọi lại rất nhiều lần, mỗi
+  /// lần quét 6.5k thuật ngữ sẽ làm cuộn bị giật. Xóa khi kho dữ liệu đổi.
+  final _careerCache = <String, List<Term>>{};
   Map<String, TermAlias> _aliases = const {};
   Map<String, Term> _byId = const {};
   Map<String, List<Term>> _byConcept = const {};
@@ -61,6 +66,7 @@ class GlossaryRepository {
 
   Future<void> warmUp() async {
     if (_loaded) return;
+    _careerCache.clear();
     _terms = await GlossaryDatabase.instance.loadAllTerms();
     _aliases = await GlossaryDatabase.instance.loadAliases();
     _study = await GlossaryDatabase.instance.allStudyStates();
@@ -276,12 +282,18 @@ class GlossaryRepository {
     return _byAcronym[normalized];
   }
 
-  static const careers = <String, String>{
-    'frontend': 'Frontend Developer',
-    'backend': 'Backend Developer',
-    'devops': 'DevOps Engineer',
-    'project_comm': 'Project Communication',
+  /// Nhãn lộ trình theo key — sinh từ bảng [careerTracks] để thêm nghề mới chỉ
+  /// cần sửa một chỗ.
+  static final careers = <String, String>{
+    for (final track in careerTracks) track.key: track.label,
   };
+
+  static CareerTrack? trackOf(String key) {
+    for (final track in careerTracks) {
+      if (track.key == key) return track;
+    }
+    return null;
+  }
 
   /// Thuật ngữ của một lộ trình, đã gộp các bản trùng khái niệm (ví dụ CNCF
   /// Kubernetes + bản biên soạn tiếng Việt) thành một nút duy nhất.
@@ -289,6 +301,8 @@ class GlossaryRepository {
   /// Liên kết tiên quyết/liên quan được ánh xạ sang id của bản thắng để sơ đồ
   /// không còn cạnh trỏ tới nút đã bị ẩn.
   List<Term> termsByCareer(String career) {
+    final cached = _careerCache[career];
+    if (cached != null) return cached;
     final groups = _careerGroups(career);
     final winnerOf = <String, Term>{};
     final remap = <String, String>{};
@@ -323,19 +337,57 @@ class GlossaryRepository {
     out.sort(
       (a, b) => a.acronym.toLowerCase().compareTo(b.acronym.toLowerCase()),
     );
-    return out;
+    // Hai nguồn có thể mô tả cùng một viết tắt dưới hai khóa khái niệm khác
+    // nhau; trên sơ đồ sẽ thành hai nút trùng tên nên chỉ giữ nút đầu.
+    final seenAcronym = <String>{};
+    final unique = <Term>[];
+    for (final t in out) {
+      if (seenAcronym.add(t.acronym.trim().toLowerCase())) unique.add(t);
+    }
+
+    // Cắt theo đúng hạn mức của track: sau khi gộp trùng, danh sách có thể dài
+    // hơn số nút đọc được trên sơ đồ.
+    final track = trackOf(career);
+    final result = track == null ? unique : unique.take(track.limit).toList();
+    _careerCache[career] = result;
+    return result;
   }
 
   Map<String, List<Term>> _careerGroups(String career) {
     final groups = <String, List<Term>>{};
-    for (final t in _terms) {
-      if (t.career != career) continue;
+    for (final t in _careerPool(career)) {
       final key = (t.concept == null || t.concept!.isEmpty)
           ? '__${t.id}'
           : t.concept!;
       (groups[key] ??= <Term>[]).add(t);
     }
     return groups;
+  }
+
+  /// Tập thuật ngữ của một lộ trình: chọn theo từ khóa/chủ đề của track rồi cắt
+  /// còn [CareerTrack.limit] nút để sơ đồ tư duy còn đọc được.
+  Iterable<Term> _careerPool(String career) {
+    final track = trackOf(career);
+    if (track == null) {
+      return _terms.where((t) => t.career == career);
+    }
+    // Mục được gắn tay đúng nghề luôn đứng đầu, kể cả khi không khớp từ khóa.
+    final curated = <Term>[];
+    final scored = <Term>[];
+    for (final t in _terms) {
+      if (t.career == career) {
+        curated.add(t);
+      } else if (track.score(t) >= 3) {
+        scored.add(t);
+      }
+    }
+    if (curated.isEmpty && scored.isEmpty) {
+      // Dữ liệu quá cũ/không khớp từ khóa: quay về cách gắn tay trước đây.
+      return _terms.where((t) => t.career == career);
+    }
+    scored.sort((a, b) => compareCareerTerms(a, b, track));
+    // Lấy dư vì bước sau còn gộp các bản trùng khái niệm.
+    return [...curated, ...scored.take(track.limit * 3)];
   }
 
   /// Chọn bản đại diện khi một khái niệm có nhiều nguồn: ưu tiên bản đã dịch,

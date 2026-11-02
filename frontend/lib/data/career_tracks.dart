@@ -1,0 +1,326 @@
+import 'models/term.dart';
+
+/// Một lộ trình nghề nghiệp, chọn thuật ngữ từ chính kho dữ liệu đóng gói.
+///
+/// Trước đây lộ trình chỉ gồm vài chục mục được gắn tay trường `career`, nên
+/// mở ra gần như trống. Mỗi track ở đây chọn theo nhóm chủ đề (tag) và từ khóa
+/// trong chính tên/định nghĩa thuật ngữ, rồi cắt còn một danh sách đủ gọn để
+/// vẽ sơ đồ tư duy thay vì nhồi hàng nghìn nút.
+class CareerTrack {
+  const CareerTrack({
+    required this.key,
+    required this.label,
+    required this.group,
+    this.tags = const [],
+    this.keywords = const [],
+    this.limit = 40,
+  });
+
+  final String key;
+  final String label;
+
+  /// Nhóm hiển thị trong bộ chọn (Sản phẩm, Hạ tầng, An ninh...).
+  final String group;
+
+  /// Thẻ chủ đề khớp là đủ điều kiện (khớp bất kỳ).
+  final List<String> tags;
+
+  /// Từ khóa (chữ thường) dò trong viết tắt, tên tiếng Anh và định nghĩa.
+  final List<String> keywords;
+
+  /// Số nút tối đa — giữ sơ đồ còn đọc được trên điện thoại.
+  final int limit;
+
+  /// Điểm khớp: khớp ở viết tắt đáng tin hơn khớp trong định nghĩa.
+  ///
+  /// Từ khóa một chữ phải khớp trọn từ — nếu dò chuỗi con thì "orm" khớp cả
+  /// "transf-orm-ation" và "ip" khớp "ZIP", kéo thuật ngữ lạc vào lộ trình.
+  int score(Term t) {
+    final acronym = t.acronym.toLowerCase();
+    final name = t.fullNameEn.toLowerCase();
+    final definition = t.shortDefinition.toLowerCase();
+    var score = 0;
+    for (final k in keywords) {
+      if (acronym == k) {
+        score += 5;
+      } else if (_containsWord(acronym, k)) {
+        score += 3;
+      } else if (_containsWord(name, k)) {
+        score += 2;
+      } else if (_containsWord(definition, k)) {
+        score += 1;
+      }
+    }
+    if (t.categoryTags.any(tags.contains)) score += 2;
+    return score;
+  }
+
+  static bool _containsWord(String haystack, String needle) {
+    if (needle.contains(' ')) return haystack.contains(needle);
+    return RegExp(
+      '(^|[^a-z0-9])' + RegExp.escape(needle) + r'($|[^a-z0-9])',
+    ).hasMatch(haystack);
+  }
+}
+
+/// Thứ tự ưu tiên khi hai thuật ngữ cùng điểm: dễ trước, rồi theo tên.
+int compareCareerTerms(Term a, Term b, CareerTrack track) {
+  final sa = track.score(a);
+  final sb = track.score(b);
+  if (sa != sb) return sb.compareTo(sa);
+  final da = _difficultyRank(a.difficulty);
+  final db = _difficultyRank(b.difficulty);
+  if (da != db) return da.compareTo(db);
+  return a.acronym.toLowerCase().compareTo(b.acronym.toLowerCase());
+}
+
+int _difficultyRank(String value) => switch (value.toLowerCase()) {
+  'beginner' => 0,
+  'advanced' => 2,
+  _ => 1,
+};
+
+/// Các lộ trình nghề nghiệp, nhóm theo mảng để bộ chọn không bị dài.
+const careerTracks = <CareerTrack>[
+  CareerTrack(
+    key: 'frontend',
+    label: 'Frontend Developer',
+    group: 'Sản phẩm',
+    tags: ['Frontend', 'Web'],
+    keywords: [
+      'css',
+      'html',
+      'javascript',
+      'dom',
+      'browser',
+      'accessibility',
+      'aria',
+      'render',
+      'spa',
+      'ssr',
+      'responsive',
+      'web',
+    ],
+  ),
+  CareerTrack(
+    key: 'backend',
+    label: 'Backend Developer',
+    group: 'Sản phẩm',
+    tags: ['Backend', 'Web API', 'API'],
+    keywords: [
+      'api',
+      'rest',
+      'graphql',
+      'sql',
+      'crud',
+      'middleware',
+      'orm',
+      'oauth',
+      'jwt',
+      'message queue',
+      'web service',
+    ],
+  ),
+  CareerTrack(
+    key: 'mobile',
+    label: 'Mobile Developer',
+    group: 'Sản phẩm',
+    tags: ['Frontend'],
+    keywords: [
+      'mobile',
+      'android',
+      'ios',
+      'app store',
+      'smartphone',
+      'handset',
+      'cellular',
+      'tablet',
+    ],
+    limit: 30,
+  ),
+  CareerTrack(
+    key: 'devops',
+    label: 'DevOps Engineer',
+    group: 'Hạ tầng',
+    tags: ['DevOps', 'methodology', 'Process'],
+    keywords: [
+      'deploy',
+      'container',
+      'docker',
+      'kubernetes',
+      'rollback',
+      'staging',
+      'hotfix',
+      'gitops',
+      'ci/cd',
+      'pipeline',
+      'release',
+    ],
+  ),
+  CareerTrack(
+    key: 'cloud',
+    label: 'Cloud Native Engineer',
+    group: 'Hạ tầng',
+    tags: ['cloud-native', 'infrastructure', 'fundamental', 'Cloud Native'],
+    keywords: [
+      'cloud',
+      'orchestration',
+      'autoscal',
+      'serverless',
+      'iaas',
+      'paas',
+      'faas',
+      'virtual',
+      'cluster',
+      'container',
+    ],
+  ),
+  CareerTrack(
+    key: 'network',
+    label: 'Network Engineer',
+    group: 'Hạ tầng',
+    tags: ['networking', 'IETF', 'Network'],
+    keywords: [
+      'tcp',
+      'ip',
+      'dns',
+      'routing',
+      'protocol',
+      'tls',
+      'http',
+      'packet',
+      'gateway',
+      'proxy',
+      'transport',
+    ],
+  ),
+  CareerTrack(
+    key: 'security',
+    label: 'Security Engineer',
+    group: 'An ninh',
+    tags: ['Security', 'security'],
+    keywords: [
+      'security',
+      'attack',
+      'threat',
+      'vulnerab',
+      'authentic',
+      'authoriz',
+      'encrypt',
+      'firewall',
+      'intrusion',
+      'malware',
+    ],
+    limit: 50,
+  ),
+  CareerTrack(
+    key: 'crypto',
+    label: 'Cryptography',
+    group: 'An ninh',
+    keywords: [
+      'cryptograph',
+      'cipher',
+      'hash',
+      'key exchange',
+      'certificate',
+      'pki',
+      'signature',
+      'nonce',
+      'entropy',
+      'public key',
+    ],
+    limit: 30,
+  ),
+  CareerTrack(
+    key: 'data',
+    label: 'Data Engineer',
+    group: 'Dữ liệu & AI',
+    tags: ['Database'],
+    keywords: [
+      'database',
+      'sql',
+      'storage',
+      'replication',
+      'warehouse',
+      'analytics',
+      'schema',
+      'big data',
+      'data model',
+    ],
+    limit: 30,
+  ),
+  CareerTrack(
+    key: 'ai_ml',
+    label: 'AI / Machine Learning',
+    group: 'Dữ liệu & AI',
+    keywords: [
+      'machine learning',
+      'neural',
+      'inference',
+      'training',
+      'artificial intelligence',
+      'classifier',
+      'deep learning',
+    ],
+    limit: 25,
+  ),
+  CareerTrack(
+    key: 'architecture',
+    label: 'Software Architect',
+    group: 'Kiến trúc',
+    tags: ['architecture', 'fundamental', 'Architecture'],
+    keywords: [
+      'architecture',
+      'distributed',
+      'scalab',
+      'microservice',
+      'monolith',
+      'design pattern',
+      'coupling',
+      'reliab',
+    ],
+    limit: 35,
+  ),
+  CareerTrack(
+    key: 'qa',
+    label: 'QA / Test Engineer',
+    group: 'Chất lượng',
+    tags: ['Quality'],
+    keywords: [
+      'test',
+      'quality',
+      'verification',
+      'validation',
+      'assurance',
+      'review',
+      'conformance',
+    ],
+    limit: 30,
+  ),
+  CareerTrack(
+    key: 'product',
+    label: 'Product & Process',
+    group: 'Chất lượng',
+    tags: ['Process', 'Communication', 'Collaboration'],
+    keywords: [
+      'agile',
+      'scrum',
+      'sprint',
+      'requirement',
+      'stakeholder',
+      'process',
+      'documentation',
+      'collaboration',
+    ],
+    limit: 25,
+  ),
+];
+
+/// Nhóm lộ trình theo mảng, giữ thứ tự khai báo.
+Map<String, List<CareerTrack>> get careerGroups {
+  final out = <String, List<CareerTrack>>{};
+  for (final track in careerTracks) {
+    (out[track.group] ??= <CareerTrack>[]).add(track);
+  }
+  return out;
+}

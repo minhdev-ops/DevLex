@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_theme.dart';
 import '../../core/knowledge_graph.dart';
 import '../../core/roadmap_selection.dart';
+import '../../data/career_tracks.dart';
 import '../../data/glossary_repository.dart';
 import '../../data/models/term.dart';
 import '../detail/term_detail_screen.dart';
@@ -50,6 +51,16 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
       _progress = _repo.careerProgressSync(_career);
       _ready = true;
     });
+  }
+
+  Future<void> _pickCareer() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => _CareerPicker(current: _career),
+    );
+    if (picked != null && mounted) _selectCareer(picked);
   }
 
   void _selectCareer(String career) {
@@ -105,25 +116,37 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
           const SizedBox(width: 8),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(72),
+          preferredSize: const Size.fromHeight(112),
           child: Column(
             children: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: GlossaryRepository.careers.entries
-                      .map(
-                        (e) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Text(e.value),
-                            selected: _career == e.key,
-                            onSelected: (_) => _selectCareer(e.key),
+              // 13 lộ trình không nhét vừa một hàng chip: dùng nút mở bộ chọn
+              // nhóm theo mảng để thanh trên không bị rối.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _pickCareer,
+                    icon: const Icon(Icons.route_outlined, size: 18),
+                    label: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            GlossaryRepository.careers[_career] ??
+                                'Chọn lộ trình',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.left,
                           ),
                         ),
-                      )
-                      .toList(),
+                        const Icon(Icons.expand_more, size: 18),
+                      ],
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                    ),
+                  ),
                 ),
               ),
               Padding(
@@ -211,6 +234,69 @@ List<Term> _orderedByLayer(List<Term> terms, KnowledgeGraph graph) {
     out.addAll(ids.map((id) => byId[id]!));
   }
   return out;
+}
+
+/// Bộ chọn lộ trình: nhóm theo mảng nghề để 13 lộ trình vẫn gọn một màn.
+class _CareerPicker extends StatelessWidget {
+  const _CareerPicker({required this.current});
+
+  final String current;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final groups = careerGroups;
+
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.8,
+        ),
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.only(bottom: 16),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                'Chọn lộ trình nghề nghiệp',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            for (final entry in groups.entries) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                child: Text(
+                  entry.key.toUpperCase(),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    letterSpacing: 0.8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              for (final track in entry.value)
+                ListTile(
+                  leading: Icon(
+                    track.key == current
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
+                    color: track.key == current
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outline,
+                  ),
+                  title: Text(track.label),
+                  selected: track.key == current,
+                  onTap: () => Navigator.of(context).pop(track.key),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Tóm tắt lộ trình: tiến độ + gợi ý thuật ngữ kế tiếp, để người dùng không

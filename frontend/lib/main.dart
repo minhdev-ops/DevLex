@@ -81,7 +81,7 @@ class _ItGlossaryAppState extends State<ItGlossaryApp> {
     return ListenableBuilder(
       listenable: AppThemeController.instance,
       builder: (context, _) => MaterialApp(
-        title: 'IT Glossary & Roadmap',
+        title: 'DevLex',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),

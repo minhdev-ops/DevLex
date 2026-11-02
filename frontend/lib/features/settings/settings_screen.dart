@@ -578,7 +578,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Được xây dựng theo đặc tả SRS IEEE 830 của dự án IT Glossary & Roadmap.',
+                  'Được xây dựng theo đặc tả SRS IEEE 830 của dự án DevLex.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),

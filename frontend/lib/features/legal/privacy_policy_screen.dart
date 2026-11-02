@@ -21,7 +21,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
           Text(
-            'DevLex — IT Glossary & Roadmap · Phiên bản $version',
+            'DevLex · Phiên bản $version',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

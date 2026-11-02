@@ -425,7 +425,16 @@ class GlossaryRepository {
           }
         }
       }
-      if (ordered.isNotEmpty) return ordered;
+      if (ordered.isNotEmpty) {
+        // Thêm các mục được gắn tay cho nghề này (ví dụ IaaS của devops) để
+        // không mất dữ liệu biên soạn tay khi đã có thứ tự chặng.
+        for (final t in _terms) {
+          if (t.career == career && !ordered.any((x) => x.id == t.id)) {
+            ordered.add(t);
+          }
+        }
+        return ordered;
+      }
     }
 
     // Mục được gắn tay đúng nghề luôn đứng đầu, kể cả khi không khớp từ khóa.

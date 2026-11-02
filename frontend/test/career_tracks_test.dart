@@ -79,10 +79,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Chọn lộ trình nghề nghiệp'), findsOneWidget);
 
-    await tester.tap(find.text('Security Engineer'));
+    await tester.tap(find.text('Backend Developer').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Security Engineer'), findsWidgets);
+    expect(find.text('Backend Developer'), findsWidgets);
     expect(find.text('Chọn lộ trình nghề nghiệp'), findsNothing);
   });
 }

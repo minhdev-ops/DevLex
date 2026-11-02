@@ -161,7 +161,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'IT Glossary',
+                              'DevLex',
                               style: Theme.of(context).textTheme.headlineSmall
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),

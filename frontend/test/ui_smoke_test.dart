@@ -43,7 +43,7 @@ void main() {
   testWidgets('dashboard tra cứu hiển thị trên màn hình hẹp', (tester) async {
     await pumpPhone(tester, const SearchScreen());
 
-    expect(find.text('DevLex'), findsOneWidget);
+    expect(find.text('DevLex'), findsWidgets);
     expect(find.text('Lộ trình nghề nghiệp'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

@@ -128,10 +128,11 @@ void main() {
         api: ApiClient(baseUrl: 'http://test', client: mock),
       );
 
-      expect(requestedCursors, [
-        null,
-        'CURSOR_HAI',
-      ], reason: 'phải kéo hết số lô cho tới khi next_cursor rỗng');
+      expect(
+        requestedCursors,
+        [null, 'CURSOR_HAI'],
+        reason: 'phải kéo hết số lô cho tới khi next_cursor rỗng',
+      );
       expect(outcome.ok, isTrue);
       expect(outcome.updated, 2);
       expect(await GlossaryDatabase.instance.getSyncCursor(), 1700000000);
@@ -198,11 +199,22 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Mức tin cậy'), findsOneWidget);
-    expect(find.textContaining('2 nguồn độc lập'), findsOneWidget);
-    expect(find.textContaining('97/100'), findsWidgets);
+    // Tầng 2 luôn hiển thị (FR-GLOS-04) nên danh sách dài hơn — một số thẻ
+    // nằm dưới chân màn hình test 800×600, dùng skipOffstage:false để kiểm tra.
+    expect(
+      find.textContaining('Mức tin cậy', skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('2 nguồn độc lập', skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(find.textContaining('97/100', skipOffstage: false), findsWidgets);
     // Dòng sync về chưa dịch -> báo trạng thái chứ không để tên tiếng Việt trống.
-    expect(find.textContaining('Chưa có bản dịch tiếng Việt'), findsOneWidget);
+    expect(
+      find.textContaining('Chưa có bản dịch tiếng Việt', skipOffstage: false),
+      findsOneWidget,
+    );
   });
 
   testWidgets(

@@ -114,12 +114,11 @@ class _TermDetailScreenState extends State<TermDetailScreen> {
             label: 'TẦNG 1 — ĐỊNH NGHĨA CƠ BẢN',
             child: _Tier1Body(term: term),
           ),
-          if (term.detailedExplanation != null || term.metaphorAnalogy != null)
-            _TierCard(
-              color: AppTheme.tier2,
-              label: 'TẦNG 2 — BỐI CẢNH & TRỰC QUAN',
-              child: _Tier2Body(term: term),
-            ),
+          _TierCard(
+            color: AppTheme.tier2,
+            label: 'TẦNG 2 — BỐI CẢNH & TRỰC QUAN',
+            child: _Tier2Body(term: term),
+          ),
           _TierCard(
             color: AppTheme.tier3,
             label: 'TẦNG 3 — MỐI QUAN HỆ & LỘ TRÌNH',
@@ -246,16 +245,15 @@ class _Tier2Body extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final explanation = (term.detailedExplanation ?? '')
-        .replaceAll('### ', '')
-        .trim();
+    final theme = Theme.of(context);
+    final explanation = (term.detailedExplanation ?? '').trim();
+    final metaphor = term.metaphorAnalogy?.trim();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (explanation.isNotEmpty)
-          Text(explanation, style: Theme.of(context).textTheme.bodyMedium),
-        if (term.metaphorAnalogy != null) ...[
+        if (explanation.isNotEmpty) ..._buildTier2Sections(theme, explanation),
+        if (metaphor != null && metaphor.isNotEmpty) ...[
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),
@@ -275,8 +273,8 @@ class _Tier2Body extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Ẩn dụ: ${term.metaphorAnalogy}',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    'Ẩn dụ: $metaphor',
+                    style: theme.textTheme.bodyMedium,
                   ),
                 ),
               ],
@@ -288,6 +286,54 @@ class _Tier2Body extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Tách các đoạn '### Tiêu đề' thành các tiểu mục rõ ràng để Tầng 2 dễ đọc,
+/// thay vì một khối văn bản dài giống hệt Tầng 1.
+List<Widget> _buildTier2Sections(ThemeData theme, String raw) {
+  final blocks = raw.split(RegExp(r'\n\s*###\s*'));
+  final out = <Widget>[];
+  for (var i = 0; i < blocks.length; i++) {
+    final block = blocks[i].trim();
+    if (block.isEmpty) continue;
+    if (i == 0) {
+      out.add(Text(block, style: theme.textTheme.bodyMedium));
+      continue;
+    }
+    // Tiêu đề và nội dung viết cùng một dòng (vd. '### Ngữ cảnh vận hành ...')
+    // thì hiển thị luôn thành đoạn văn thay vì đẩy cả dòng thành tiêu đề.
+    if (!block.contains('\n')) {
+      out.add(Text(block, style: theme.textTheme.bodyMedium));
+      continue;
+    }
+    final nl = block.indexOf('\n');
+    final heading = block.substring(0, nl).trim();
+    final body = block.substring(nl + 1).trim();
+    out.add(const SizedBox(height: 14));
+    out.add(
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(Icons.segment, size: 16, color: AppTheme.tier2),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              heading,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppTheme.tier2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (body.isNotEmpty) {
+      out.add(const SizedBox(height: 4));
+      out.add(Text(body, style: theme.textTheme.bodyMedium));
+    }
+  }
+  return out;
 }
 
 /// FR-GLOS-04 (Tầng 2): sơ đồ luồng hoạt động đơn giản hóa. Khi nguồn có ảnh
@@ -304,12 +350,12 @@ class _ContextDiagram extends StatelessWidget {
     final prerequisites = term.prerequisites
         .map(repo.termById)
         .whereType<Term>()
-        .take(2)
+        .take(4)
         .toList();
     final related = term.relatedTerms
         .map(repo.termById)
         .whereType<Term>()
-        .take(2)
+        .take(4)
         .toList();
 
     final url = (term.diagramUrl ?? '').trim();
@@ -416,12 +462,20 @@ class _FlowBoard extends StatelessWidget {
                     side[0],
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 4),
-                      child: Icon(Icons.arrow_downward, size: 16),
+                      child: Icon(
+                        Icons.arrow_downward,
+                        size: 18,
+                        color: AppTheme.tier2,
+                      ),
                     ),
                     center,
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 4),
-                      child: Icon(Icons.arrow_downward, size: 16),
+                      child: Icon(
+                        Icons.arrow_downward,
+                        size: 18,
+                        color: AppTheme.tier2,
+                      ),
                     ),
                     side[1],
                   ],
@@ -434,12 +488,20 @@ class _FlowBoard extends StatelessWidget {
                   Expanded(child: side[0]),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(Icons.arrow_forward, size: 16),
+                    child: Icon(
+                      Icons.arrow_forward,
+                      size: 18,
+                      color: AppTheme.tier2,
+                    ),
                   ),
                   Expanded(child: center),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(Icons.arrow_forward, size: 16),
+                    child: Icon(
+                      Icons.arrow_forward,
+                      size: 18,
+                      color: AppTheme.tier2,
+                    ),
                   ),
                   Expanded(child: side[1]),
                 ],

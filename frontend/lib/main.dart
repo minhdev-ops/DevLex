@@ -7,6 +7,7 @@ import 'core/api_config.dart';
 import 'core/app_theme.dart';
 import 'core/auto_sync.dart';
 import 'core/consent.dart';
+import 'core/reminders.dart';
 import 'core/connectivity_status.dart';
 import 'core/moderator_config.dart';
 import 'core/theme_controller.dart';
@@ -57,10 +58,13 @@ class _ItGlossaryAppState extends State<ItGlossaryApp> {
     ApiConfig.instance.load();
     ModeratorConfig.instance.load();
     Consent.instance.load();
+    Reminders.instance.load();
     _autoSync.attach();
     // Lần đầu mở app (hoặc dữ liệu đã cũ): kéo delta trong im lặng.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _autoSync.maybeSync();
+      // Khởi tạo thông báo nhắc học (đặt lại lịch nếu người dùng đã bật).
+      Reminders.instance.init();
       // Dò kết nối để badge online/offline hiển thị đúng ngay từ đầu.
       ConnectivityStatus.instance.checkNow();
     });

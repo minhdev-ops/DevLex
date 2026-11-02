@@ -18,7 +18,7 @@ void main() {
   late Directory dir;
 
   setUpAll(() async {
-    dir = Directory.systemTemp.createTempSync('decoder_contrast');
+    dir = Directory.systemTemp.createTempSync('decodercontrastOf');
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     databaseFactoryFfi.setDatabasesPath(dir.path);
@@ -30,7 +30,7 @@ void main() {
     dir.deleteSync(recursive: true);
   });
 
-  double _luminance(Color c) {
+  double luminanceOf(Color c) {
     double channel(double v) =>
         v <= 0.03928 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
     return 0.2126 * channel(c.r) +
@@ -38,9 +38,9 @@ void main() {
         0.0722 * channel(c.b);
   }
 
-  double _contrast(Color a, Color b) {
-    final la = _luminance(a);
-    final lb = _luminance(b);
+  double contrastOf(Color a, Color b) {
+    final la = luminanceOf(a);
+    final lb = luminanceOf(b);
     final hi = la > lb ? la : lb;
     final lo = la > lb ? lb : la;
     return (hi + 0.05) / (lo + 0.05);
@@ -80,7 +80,7 @@ void main() {
     expect(spans, isNotEmpty, reason: 'ví dụ mẫu phải có thuật ngữ được highlight');
     for (final s in spans) {
       expect(
-        _contrast(s.style!.color!, s.style!.backgroundColor!),
+        contrastOf(s.style!.color!, s.style!.backgroundColor!),
         greaterThan(4.5),
         reason: 'chữ "${s.text}" quá mờ trên nền highlight',
       );
@@ -92,7 +92,7 @@ void main() {
     expect(spans, isNotEmpty);
     for (final s in spans) {
       expect(
-        _contrast(s.style!.color!, s.style!.backgroundColor!),
+        contrastOf(s.style!.color!, s.style!.backgroundColor!),
         greaterThan(4.5),
         reason: 'chữ "${s.text}" quá mờ trên nền highlight',
       );

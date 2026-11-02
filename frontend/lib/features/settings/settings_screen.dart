@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_config.dart';
 import '../../core/app_theme.dart';
+import '../../core/reminders.dart';
 import '../../core/consent.dart';
 import '../../core/moderator_config.dart';
 import '../../core/theme_controller.dart';
@@ -161,6 +162,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _toggleReminder(bool value) async {
+    await Reminders.instance.setEnabled(value);
+    if (!mounted) return;
+    setState(() {});
+    if (value) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Sẽ nhắc bạn lúc ${Reminders.instance.time.value.label} mỗi ngày.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _pickReminderTime() async {
+    final current = Reminders.instance.time.value;
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: current.hour, minute: current.minute),
+    );
+    if (picked == null) return;
+    await Reminders.instance.setTime(picked.hour, picked.minute);
+    if (mounted) setState(() {});
+  }
+
   Future<void> _setTheme(ThemeMode mode) async {
     await AppThemeController.instance.setMode(mode);
     if (mounted) setState(() {});
@@ -220,6 +247,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SectionCard(
+            title: 'Nhắc học',
+            icon: Icons.alarm_outlined,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Thông báo nhắc ôn tập mỗi ngày',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                    Switch(
+                      value: Reminders.instance.enabled.value,
+                      onChanged: _toggleReminder,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                OutlinedButton.icon(
+                  onPressed: Reminders.instance.enabled.value
+                      ? _pickReminderTime
+                      : null,
+                  icon: const Icon(Icons.schedule),
+                  label: Text(
+                    'Giờ nhắc: ${Reminders.instance.time.value.label}',
+                  ),
+                ),
+                if (stats.bestStreak > 0) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.local_fire_department_outlined,
+                        size: 18,
+                        color: scheme.tertiary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Chuỗi ôn tập tốt nhất: ${stats.bestStreak}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

@@ -58,7 +58,7 @@ class CareerTrack {
   static bool _containsWord(String haystack, String needle) {
     if (needle.contains(' ')) return haystack.contains(needle);
     return RegExp(
-      '(^|[^a-z0-9])' + RegExp.escape(needle) + r'($|[^a-z0-9])',
+      '(^|[^a-z0-9])${RegExp.escape(needle)}(\$|[^a-z0-9])',
     ).hasMatch(haystack);
   }
 }

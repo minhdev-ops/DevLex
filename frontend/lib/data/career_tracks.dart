@@ -14,6 +14,7 @@ class CareerTrack {
     this.tags = const [],
     this.keywords = const [],
     this.limit = 40,
+    this.stages = const [],
   });
 
   final String key;
@@ -30,6 +31,11 @@ class CareerTrack {
 
   /// Số nút tối đa — giữ sơ đồ còn đọc được trên điện thoại.
   final int limit;
+
+  /// Thứ tự học theo từng chặng (mỗi chặng là danh sách viết tắt có trong kho).
+  /// Nút ở chặng sau nhận các nút chặng trước làm tiên quyết, nhờ đó sơ đồ có
+  /// cạnh thật và có mũi tên thay vì chỉ là lưới ô rời.
+  final List<List<String>> stages;
 
   /// Điểm khớp: khớp ở viết tắt đáng tin hơn khớp trong định nghĩa.
   ///
@@ -101,6 +107,14 @@ const careerTracks = <CareerTrack>[
       'responsive',
       'web',
     ],
+    stages: [
+      ['Computer programming', 'browser', 'Browsing context'],
+      ['Attribute', 'Block-level content', 'Box fragment', 'Bounding box'],
+      ['Accessibility', 'ARIA', 'Accessible name', 'Accessibility tree'],
+      ['Cache', 'Cookie', 'CORS', 'bfcache'],
+      ['Ajax', 'Code splitting', 'Bun', 'BigInt'],
+      ['CLS', 'Composite operation', 'Crawler'],
+    ],
   ),
   CareerTrack(
     key: 'backend',
@@ -119,6 +133,14 @@ const careerTracks = <CareerTrack>[
       'jwt',
       'message queue',
       'web service',
+    ],
+    stages: [
+      ['API', 'Web Service'],
+      ['REST', 'CRUD', 'HTTP'],
+      ['Middleware', 'ORM', 'SQL'],
+      ['NoSQL', 'Replication', 'Message Queue'],
+      ['API Gateway', 'OAuth', 'JWT'],
+      ['GraphQL', 'SQL injection'],
     ],
   ),
   CareerTrack(
@@ -156,6 +178,14 @@ const careerTracks = <CareerTrack>[
       'pipeline',
       'release',
     ],
+    stages: [
+      ['Virtualization', 'Virtual Machine'],
+      ['Containerization', 'Container', 'Container runtime'],
+      ['Docker', 'Container Orchestration', 'Kubernetes'],
+      ['Ingress', 'Load Balancer', 'Service Mesh'],
+      ['CI/CD', 'CD', 'GitOps'],
+      ['Staging', 'Release', 'Rollback', 'Hotfix'],
+    ],
   ),
   CareerTrack(
     key: 'cloud',
@@ -173,6 +203,13 @@ const careerTracks = <CareerTrack>[
       'virtual',
       'cluster',
       'container',
+    ],
+    stages: [
+      ['Cloud computing', 'Cloud Provider', 'Cloud Consumer'],
+      ['IaaS', 'PaaS', 'FaaS'],
+      ['Cloud Native Technology', 'Cluster', 'Container Orchestration'],
+      ['Autoscaling', 'Immutable Infrastructure'],
+      ['Cloud Native Storage', 'Cloud Native Security'],
     ],
   ),
   CareerTrack(
@@ -192,6 +229,12 @@ const careerTracks = <CareerTrack>[
       'gateway',
       'proxy',
       'transport',
+    ],
+    stages: [
+      ['Internet Protocol (IP) addresses', 'domain name', 'DNS'],
+      ['HTTP', 'HTTP/2', 'HTTP/3', 'https'],
+      ['Application Layer', 'gateway', 'API Gateway'],
+      ['IPsec', 'Internet Protocol Security', 'Handshake Protocol'],
     ],
   ),
   CareerTrack(

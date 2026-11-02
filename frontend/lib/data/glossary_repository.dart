@@ -349,8 +349,9 @@ class GlossaryRepository {
     // hơn số nút đọc được trên sơ đồ.
     final track = trackOf(career);
     final result = track == null ? unique : unique.take(track.limit).toList();
-    _careerCache[career] = result;
-    return result;
+    final staged = _applyStages(result, track);
+    _careerCache[career] = staged;
+    return staged;
   }
 
   Map<String, List<Term>> _careerGroups(String career) {
@@ -364,6 +365,44 @@ class GlossaryRepository {
     return groups;
   }
 
+  /// Gắn tiên quyết theo chặng: mỗi nút ở chặng N phụ thuộc các nút chặng N-1.
+  /// Chỉ điền khi mục từ chưa có tiên quyết riêng để không đè dữ liệu gốc.
+  List<Term> _applyStages(List<Term> terms, CareerTrack? track) {
+    if (track == null || track.stages.isEmpty) return terms;
+    final byAcronym = <String, Term>{
+      for (final t in terms) t.acronym.trim().toLowerCase(): t,
+    };
+    final stageIds = <List<String>>[];
+    for (final stage in track.stages) {
+      stageIds.add([
+        for (final name in stage)
+          if (byAcronym[name.trim().toLowerCase()] != null)
+            byAcronym[name.trim().toLowerCase()]!.id,
+      ]);
+    }
+    final prereqOf = <String, List<String>>{};
+    for (var i = 1; i < stageIds.length; i++) {
+      final prev = stageIds[i - 1].take(3).toList();
+      if (prev.isEmpty) continue;
+      for (final id in stageIds[i]) {
+        prereqOf.putIfAbsent(id, () => prev);
+      }
+    }
+    if (prereqOf.isEmpty) return terms;
+    final ids = {for (final t in terms) t.id};
+    return [
+      for (final t in terms)
+        if (t.prerequisites.isEmpty &&
+            prereqOf.containsKey(t.id) &&
+            prereqOf[t.id]!.any(ids.contains))
+          t.copyWith(
+            prerequisites: prereqOf[t.id]!.where(ids.contains).toList(),
+          )
+        else
+          t,
+    ];
+  }
+
   /// Tập thuật ngữ của một lộ trình: chọn theo từ khóa/chủ đề của track rồi cắt
   /// còn [CareerTrack.limit] nút để sơ đồ tư duy còn đọc được.
   Iterable<Term> _careerPool(String career) {
@@ -371,6 +410,24 @@ class GlossaryRepository {
     if (track == null) {
       return _terms.where((t) => t.career == career);
     }
+    // Có thứ tự học tự soạn thì lấy đúng các mục đó trước, theo đúng thứ tự
+    // chặng — nhờ vậy sơ đồ có cạnh tiên quyết thật.
+    if (track.stages.isNotEmpty) {
+      final byAcronym = <String, Term>{
+        for (final t in _terms) t.acronym.trim().toLowerCase(): t,
+      };
+      final ordered = <Term>[];
+      for (final stage in track.stages) {
+        for (final name in stage) {
+          final term = byAcronym[name.trim().toLowerCase()];
+          if (term != null && !ordered.any((x) => x.id == term.id)) {
+            ordered.add(term);
+          }
+        }
+      }
+      if (ordered.isNotEmpty) return ordered;
+    }
+
     // Mục được gắn tay đúng nghề luôn đứng đầu, kể cả khi không khớp từ khóa.
     final curated = <Term>[];
     final scored = <Term>[];

@@ -18,6 +18,21 @@ int nextIntervalDays(int current) {
   return _srsLadder[idx + 1];
 }
 
+/// Phạm vi thẻ của một phiên ôn tập.
+enum FlashcardScope {
+  /// Thẻ đã tới hạn ôn theo chu kỳ 1 → 3 → 7 ngày.
+  due,
+
+  /// Thuật ngữ chưa từng học.
+  fresh,
+
+  /// Toàn bộ thuật ngữ đã học — dùng khi muốn làm lại.
+  learned,
+
+  /// Trộn thẻ đến hạn và thẻ mới (mặc định).
+  all,
+}
+
 class GlossaryRepository {
   GlossaryRepository._();
 
@@ -514,6 +529,60 @@ class GlossaryRepository {
           ..sort((a, b) => b.streak.compareTo(a.streak));
     return due.map((s) => _byId[s.termId]).whereType<Term>().toList();
   }
+
+
+  /// Phạm vi thẻ cho một phiên ôn.
+  ///
+  /// Trước đây màn Ôn tập chỉ lấy thẻ đã quá hạn nên người mới mở app thấy
+  /// "chưa có thẻ nào" và không có cách nào làm lại từ đã học.
+  List<Term> flashcardDeck(
+    FlashcardScope scope, {
+    String? career,
+    int limit = 30,
+  }) {
+    List<Term> inCareer(Iterable<Term> terms) {
+      if (career == null || career.isEmpty) return terms.toList();
+      final ids = termsByCareer(career).map((t) => t.id).toSet();
+      return terms.where((t) => ids.contains(t.id)).toList();
+    }
+
+    final due = inCareer(dueFlashcards());
+    switch (scope) {
+      case FlashcardScope.due:
+        return due.take(limit).toList();
+      case FlashcardScope.fresh:
+        return inCareer(_freshPool())
+            .take(limit)
+            .toList();
+      case FlashcardScope.learned:
+        return inCareer(
+          _byId.values.where((t) => _study[t.id]?.learned ?? false),
+        ).take(limit).toList();
+      case FlashcardScope.all:
+        final seen = due.map((t) => t.id).toSet();
+        final fresh = inCareer(_freshPool())
+            .where((t) => !seen.contains(t.id))
+            .take(limit);
+        return [...due.take(limit), ...fresh].take(limit).toList();
+    }
+  }
+
+  /// Thuật ngữ chưa từng chạm tới, xếp theo bảng chữ cái để phiên học ổn định.
+  Iterable<Term> _freshPool() {
+    final fresh = _byId.values
+        .where((t) => !_study.containsKey(t.id))
+        .toList()
+      ..sort(
+        (a, b) => a.acronym.toLowerCase().compareTo(b.acronym.toLowerCase()),
+      );
+    return fresh;
+  }
+
+  /// Số thẻ sẵn có theo từng phạm vi — hiển thị trên chip chọn phạm vi.
+  Map<FlashcardScope, int> flashcardCounts({String? career}) => {
+    for (final scope in FlashcardScope.values)
+      scope: flashcardDeck(scope, career: career, limit: 100000).length,
+  };
 
   /// FR-QUIZ-01: sinh 5–10 câu trắc nghiệm từ thuật ngữ đã xem hoặc đã học.
   ///

@@ -53,14 +53,44 @@ class _QuizScreenState extends State<QuizScreen> {
     _load();
   }
 
+  /// Phạm vi thẻ đang học: mặc định trộn thẻ đến hạn với từ mới.
+  FlashcardScope _scope = FlashcardScope.all;
+
+  /// Id các thẻ đã chấm trong phiên — dùng cho nút "Làm lại phiên này".
+  final List<String> _sessionIds = [];
+
   void _load() {
     setState(() {
-      _queue = _repo.dueFlashcards();
+      _queue = _repo.flashcardDeck(_scope);
       _cardIndex = 0;
       _showBack = false;
       _sessionRemembered = 0;
       _sessionForgot = 0;
+      _sessionIds.clear();
       _ready = true;
+    });
+  }
+
+  void _setScope(FlashcardScope scope) {
+    if (_scope == scope) return;
+    _scope = scope;
+    _load();
+  }
+
+  /// Làm lại đúng những thẻ vừa chấm, không phụ thuộc lịch SRS.
+  void _restartSession() {
+    final ids = _sessionIds.toList();
+    if (ids.isEmpty) {
+      _load();
+      return;
+    }
+    setState(() {
+      _queue = ids.map(_repo.termById).whereType<Term>().toList();
+      _cardIndex = 0;
+      _showBack = false;
+      _sessionRemembered = 0;
+      _sessionForgot = 0;
+      _sessionIds.clear();
     });
   }
 
@@ -79,6 +109,7 @@ class _QuizScreenState extends State<QuizScreen> {
       }
       _showBack = false;
       _cardIndex++;
+      _sessionIds.add(term.id);
     });
   }
 
@@ -178,7 +209,11 @@ class _QuizScreenState extends State<QuizScreen> {
         remembered: _sessionRemembered,
         forgot: _sessionForgot,
         hadQueue: _queue.isNotEmpty,
+        scope: _scope,
+        counts: _repo.flashcardCounts(),
+        onScope: _setScope,
         onReload: _load,
+        onRestart: _sessionIds.isEmpty ? null : _restartSession,
         onQuiz: () {
           _startQuiz();
         },
@@ -227,9 +262,17 @@ class _QuizScreenState extends State<QuizScreen> {
             ],
           ),
         ),
+        _ScopeBar(
+          scope: _scope,
+          counts: _repo.flashcardCounts(),
+          onChanged: _setScope,
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: Row(
+          // Wrap thay vì Row: màn 360dp tràn 1px khi hai nhãn cạnh nhau.
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               _SessionPill(
                 icon: Icons.check_circle_outline,
@@ -237,7 +280,6 @@ class _QuizScreenState extends State<QuizScreen> {
                 label: 'Đã nhớ',
                 tone: AppTheme.tier2,
               ),
-              const SizedBox(width: 8),
               _SessionPill(
                 icon: Icons.refresh,
                 count: _sessionForgot,
@@ -694,7 +736,11 @@ class _ReviewEmpty extends StatelessWidget {
     required this.remembered,
     required this.forgot,
     required this.hadQueue,
+    required this.scope,
+    required this.counts,
+    required this.onScope,
     required this.onReload,
+    required this.onRestart,
     required this.onQuiz,
   });
 
@@ -702,61 +748,127 @@ class _ReviewEmpty extends StatelessWidget {
   final int remembered;
   final int forgot;
   final bool hadQueue;
+  final FlashcardScope scope;
+  final Map<FlashcardScope, int> counts;
+  final ValueChanged<FlashcardScope> onScope;
   final VoidCallback onReload;
+  final VoidCallback? onRestart;
   final VoidCallback onQuiz;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final done = remembered + forgot;
+    final fresh = counts[FlashcardScope.fresh] ?? 0;
 
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              done > 0
-                  ? Icons.workspace_premium_outlined
-                  : Icons.nightlight_outlined,
-              size: 52,
-              color: done > 0 ? AppTheme.tier3 : scheme.outline,
+    return Column(
+      children: [
+        _ScopeBar(scope: scope, counts: counts, onChanged: onScope),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(28, 8, 28, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  done > 0
+                      ? Icons.workspace_premium_outlined
+                      : Icons.nightlight_outlined,
+                  size: 52,
+                  color: done > 0 ? AppTheme.tier3 : scheme.outline,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  done > 0
+                      ? 'Hoàn thành phiên ôn!'
+                      : 'Không còn thẻ trong mục này',
+                  style: Theme.of(context).textTheme.titleMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  done > 0
+                      ? 'Đã nhớ $remembered · Chưa nhớ $forgot\nStreak tốt nhất: $streak ngày liên tiếp'
+                      : fresh > 0
+                      ? 'Còn $fresh thuật ngữ chưa học — bắt đầu bằng một phiên từ mới.'
+                      : 'Bạn đã đi hết kho thuật ngữ. Chọn "Đã học" để làm lại từ đầu.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 18),
+                if (onRestart != null) ...[
+                  FilledButton.icon(
+                    onPressed: onRestart,
+                    icon: const Icon(Icons.replay),
+                    label: const Text('Làm lại phiên này'),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (fresh > 0)
+                  FilledButton.tonalIcon(
+                    onPressed: () => onScope(FlashcardScope.fresh),
+                    icon: const Icon(Icons.auto_awesome),
+                    label: Text('Học tiếp $fresh từ mới'),
+                  )
+                else if (hadQueue)
+                  FilledButton.tonalIcon(
+                    onPressed: onReload,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Kiểm tra lại'),
+                  ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: onQuiz,
+                  icon: const Icon(Icons.quiz_outlined),
+                  label: const Text('Làm trắc nghiệm'),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              done > 0 ? 'Hoàn thành phiên ôn!' : 'Chưa có thẻ đến hạn ôn',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            if (done > 0)
-              Text(
-                'Đã nhớ $remembered · Chưa nhớ $forgot\nStreak tốt nhất: $streak ngày liên tiếp',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              )
-            else
-              Text(
-                'Đánh dấu "đã học" ở tab Lộ trình hoặc Tra cứu để thêm thẻ vào hàng chờ.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            const SizedBox(height: 18),
-            if (hadQueue) ...[
-              FilledButton.icon(
-                onPressed: onReload,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Kiểm tra lại'),
-              ),
-              const SizedBox(height: 8),
-            ],
-            OutlinedButton.icon(
-              onPressed: onQuiz,
-              icon: const Icon(Icons.quiz_outlined),
-              label: const Text('Làm trắc nghiệm'),
-            ),
-          ],
+          ),
         ),
+      ],
+    );
+  }
+}
+
+/// Chọn phạm vi thẻ: tất cả / cần ôn / từ mới / đã học.
+class _ScopeBar extends StatelessWidget {
+  const _ScopeBar({
+    required this.scope,
+    required this.counts,
+    required this.onChanged,
+  });
+
+  final FlashcardScope scope;
+  final Map<FlashcardScope, int> counts;
+  final ValueChanged<FlashcardScope> onChanged;
+
+  static const _labels = {
+    FlashcardScope.all: 'Tất cả',
+    FlashcardScope.due: 'Cần ôn',
+    FlashcardScope.fresh: 'Từ mới',
+    FlashcardScope.learned: 'Đã học',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        children: [
+          for (final s in FlashcardScope.values)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text('${_labels[s]} (${counts[s] ?? 0})'),
+                selected: scope == s,
+                onSelected: (_) => onChanged(s),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+        ],
       ),
     );
   }

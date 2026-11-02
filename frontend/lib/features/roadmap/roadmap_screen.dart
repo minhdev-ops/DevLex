@@ -398,14 +398,13 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
       children: [
         Positioned.fill(
           child: InteractiveViewer(
+            constrained: false,
             minScale: 0.4,
             maxScale: 2.5,
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox(
-                width: _pad * 2 + (maxCol + 1) * _xGap,
-                height: _pad * 2 + (maxRow == 0 ? 1 : maxRow) * _yGap,
-                child: Stack(
+            child: SizedBox(
+              width: _pad * 2 + (maxCol + 1) * _xGap,
+              height: _pad * 2 + (maxRow == 0 ? 1 : maxRow) * _yGap,
+              child: Stack(
                   children: [
                     Positioned.fill(
                       child: CustomPaint(
@@ -442,7 +441,6 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
                   ],
                 ),
               ),
-            ),
           ),
         ),
         if (selected != null)

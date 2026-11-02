@@ -524,13 +524,33 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
     final pos = <String, Offset>{};
     var maxRow = 0;
     var maxCol = 0;
-    graph.layers(byId.keys).forEach((layer, ids) {
-      if (layer > maxCol) maxCol = layer;
-      if (ids.length > maxRow) maxRow = ids.length;
-      for (var r = 0; r < ids.length; r++) {
-        pos[ids[r]] = Offset(_pad + layer * _xGap, _pad + r * _yGap);
+    // Xếp mỗi tầng thành cột, nhưng cắt cột sau 10 nút: kho thuật ngữ phần lớn
+    // không có cạnh tiên quyết nên nếu dồn một cột dọc thì sơ đồ thành dải dài
+    // và bị thu nhỏ đến mức không đọc được.
+    const rowsPerColumn = 10;
+    var column = 0;
+    final layers = graph.layers(byId.keys);
+    final layerKeys = layers.keys.toList()..sort();
+    for (final layer in layerKeys) {
+      final ids = [...layers[layer]!]
+        ..sort(
+          (a, b) => byId[a]!.acronym.toLowerCase().compareTo(
+            byId[b]!.acronym.toLowerCase(),
+          ),
+        );
+      for (var start = 0; start < ids.length; start += rowsPerColumn) {
+        final chunk = ids.sublist(
+          start,
+          (start + rowsPerColumn).clamp(0, ids.length),
+        );
+        if (chunk.length > maxRow) maxRow = chunk.length;
+        for (var r = 0; r < chunk.length; r++) {
+          pos[chunk[r]] = Offset(_pad + column * _xGap, _pad + r * _yGap);
+        }
+        column++;
       }
-    });
+    }
+    maxCol = column == 0 ? 0 : column - 1;
 
     final canvas = Size(
       _pad * 2 + (maxCol + 1) * _xGap,

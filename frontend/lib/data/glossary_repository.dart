@@ -410,21 +410,17 @@ class GlossaryRepository {
   /// Tiến độ lộ trình tính ngay từ cache in-memory (không cần chờ SQLite), để
   /// dashboard và header sơ đồ cập nhật tức thì sau khi đánh dấu đã học.
   int careerProgressSync(String career) {
-    final groups = _careerGroups(career);
-    if (groups.isEmpty) return 0;
-    final done = groups.values.where((group) {
-      return group.any((t) => _study[t.id]?.learned ?? false);
-    }).length;
-    return (done * 100 / groups.length).round();
+    final terms = termsByCareer(career);
+    if (terms.isEmpty) return 0;
+    final done = terms.where((t) => _study[t.id]?.learned ?? false).length;
+    return (done * 100 / terms.length).round();
   }
 
   /// Số thuật ngữ đã hoàn thành / tổng số nút của lộ trình (đã gộp trùng).
   (int done, int total) careerCounts(String career) {
-    final groups = _careerGroups(career);
-    final done = groups.values.where((group) {
-      return group.any((t) => _study[t.id]?.learned ?? false);
-    }).length;
-    return (done, groups.length);
+    final terms = termsByCareer(career);
+    final done = terms.where((t) => _study[t.id]?.learned ?? false).length;
+    return (done, terms.length);
   }
 
   StudyState cachedStudyState(String termId) =>

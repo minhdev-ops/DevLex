@@ -31,7 +31,7 @@ php artisan serve
 ## Frontend (`frontend/`)
 
 - Stack: Flutter (Dart), sqflite — Offline-first, DB đóng gói sẵn trong asset.
-- Kho dữ liệu: hơn 6.500 thuật ngữ từ NIST, MDN, CNCF, IETF RFC 4949 và phần biên soạn DevLex.
+- Kho dữ liệu: khoảng 1.250 thuật ngữ đã tuyển chọn từ MDN, CNCF, NIST/IETF cốt lõi và phần biên soạn DevLex (đã lọc bỏ ký hiệu toán, mục trùng và mục không rõ nghĩa).
 
 ### Chức năng đã hoàn thiện
 

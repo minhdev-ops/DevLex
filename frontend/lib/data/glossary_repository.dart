@@ -384,8 +384,11 @@ class GlossaryRepository {
     for (var i = 1; i < stageIds.length; i++) {
       final prev = stageIds[i - 1].take(3).toList();
       if (prev.isEmpty) continue;
-      for (final id in stageIds[i]) {
-        prereqOf.putIfAbsent(id, () => prev);
+      final current = stageIds[i];
+      for (var j = 0; j < current.length; j++) {
+        // Nối vòng tròn: mỗi nút chỉ nhận một tiên quyết gần nhất thay vì nối
+        // chéo vào cả ba nút chặng trước (sơ đồ sẽ rối như mạng nhện).
+        prereqOf.putIfAbsent(current[j], () => [prev[j % prev.length]]);
       }
     }
     if (prereqOf.isEmpty) return terms;
@@ -443,7 +446,7 @@ class GlossaryRepository {
     for (final t in _terms) {
       if (t.career == career) {
         curated.add(t);
-      } else if (track.score(t) >= 3) {
+      } else if (track.hasNameMatch(t)) {
         scored.add(t);
       }
     }

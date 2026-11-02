@@ -156,6 +156,14 @@ class _SearchScreenState extends State<SearchScreen> {
                 children: [
                   Row(
                     children: [
+                      Image.asset(
+                        'assets/branding/logo.png',
+                        width: 36,
+                        height: 36,
+                        filterQuality: FilterQuality.medium,
+                        semanticLabel: 'Logo DevLex',
+                      ),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

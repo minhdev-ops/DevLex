@@ -61,6 +61,23 @@ class CareerTrack {
     return score;
   }
 
+  /// Chỉ nhận thuật ngữ mà từ khóa xuất hiện trong **viết tắt hoặc tên**, không
+  /// nhận khớp lỏng trong phần định nghĩa. Khớp định nghĩa kéo về những mục
+  /// chẳng liên quan (ví dụ "Adobe Flash" lọt vào lộ trình Frontend chỉ vì
+  /// định nghĩa có chữ "web").
+  bool hasNameMatch(Term t) {
+    final acronym = t.acronym.toLowerCase();
+    final name = t.fullNameEn.toLowerCase();
+    for (final k in keywords) {
+      if (acronym == k ||
+          _containsWord(acronym, k) ||
+          _containsWord(name, k)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   static bool _containsWord(String haystack, String needle) {
     if (needle.contains(' ')) return haystack.contains(needle);
     return RegExp(
@@ -477,6 +494,14 @@ const careerTracks = <CareerTrack>[
       'classifier',
       'dataset',
     ],
+    stages: [
+      ['Descriptive Statistics', 'sampling', 'Bias'],
+      ['Correlation', 'regression', 'Hypothesis Testing'],
+      ['Train/Test Split', 'Cross-Validation', 'Overfitting'],
+      ['Classification', 'Clustering', 'precision'],
+      ['Feature Engineering', 'Data Cleaning', 'Feature Store'],
+      ['Machine Learning', 'Embedding', 'Model Drift'],
+    ],
     limit: 30,
   ),
   CareerTrack(
@@ -508,6 +533,13 @@ const careerTracks = <CareerTrack>[
       'guide',
       'requirement',
     ],
+    stages: [
+      ['Documentation', 'readme', 'Markdown'],
+      ['Docs-as-Code', 'Style Guide', 'Changelog'],
+      ['Release Notes', 'API Reference', 'Information Architecture'],
+      ['Tutorial', 'How-to Guide', 'Reference Documentation'],
+      ['Content Audit', 'Localization', 'Specification'],
+    ],
     limit: 30,
   ),
   CareerTrack(
@@ -523,6 +555,12 @@ const careerTracks = <CareerTrack>[
       'biometric',
       'firmware',
     ],
+    stages: [
+      ['Embedded System', 'Firmware', 'Modbus'],
+      ['MQTT', 'CoAP', 'Zigbee'],
+      ['LoRaWAN', 'Edge Gateway', 'Telemetry'],
+      ['Digital Twin', 'Firmware OTA', 'Cloud'],
+    ],
     limit: 30,
   ),
   CareerTrack(
@@ -536,6 +574,13 @@ const careerTracks = <CareerTrack>[
       'cryptocurrenc',
       'distributed ledger',
       'consensus',
+    ],
+    stages: [
+      ['Blockchain', 'Hash function', 'Merkle Tree'],
+      ['Distributed Ledger', 'Consensus', 'Proof of Work'],
+      ['Proof of Stake', 'Smart Contract', 'Wallet'],
+      ['DApp', 'ERC-20 Token', 'Gas Fee'],
+      ['Layer 2', 'Rollup', 'Smart Contract'],
     ],
     limit: 25,
   ),

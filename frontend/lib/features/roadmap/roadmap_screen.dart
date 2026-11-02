@@ -443,6 +443,9 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
   /// được toàn bộ sơ đồ.
   final _view = TransformationController();
 
+  /// Kích thước thật của khung sơ đồ (không phải cả màn hình) để canh giữa đúng.
+  Size _viewSize = Size.zero;
+
   String? _selectedId;
   bool _showHint = true;
   Size _canvas = Size.zero;
@@ -475,8 +478,8 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
 
   /// Thu phóng quanh tâm khung nhìn để nội dung không nhảy ra ngoài màn hình.
   void _zoomTo(double target) {
-    final box = context.size;
-    if (box == null || box.isEmpty) return;
+    final box = _viewSize;
+    if (box.isEmpty) return;
     final current = _scale;
     final next = target.clamp(_minScale, _maxScale);
     if ((next - current).abs() < 0.001) return;
@@ -493,8 +496,8 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
 
   /// Canh toàn bộ sơ đồ vào khung nhìn, không phóng quá cỡ thật.
   void _fitToView() {
-    final box = context.size;
-    if (box == null || box.isEmpty || _canvas.isEmpty) return;
+    final box = _viewSize;
+    if (box.isEmpty || _canvas.isEmpty) return;
     final byWidth = box.width / _canvas.width;
     final byHeight = box.height / _canvas.height;
     final scale = (byWidth < byHeight ? byWidth : byHeight).clamp(
@@ -595,106 +598,116 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
         ? const <String>{}
         : graph.dependentClosure(selected);
 
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: InteractiveViewer(
-            transformationController: _view,
-            constrained: false,
-            minScale: _minScale,
-            maxScale: _maxScale,
-            // Cho phép kéo quá mép: sơ đồ nhỏ hơn khung nhìn vẫn di chuyển
-            // được thay vì đứng yên như bị khoá.
-            boundaryMargin: const EdgeInsets.all(4000),
-            onInteractionStart: (_) {
-              if (_showHint) setState(() => _showHint = false);
-            },
-            child: SizedBox(
-              width: canvas.width,
-              height: canvas.height,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: _EdgePainter(
-                        pos: pos,
-                        edges: edges,
-                        related: related,
-                        nodeW: _nodeW,
-                        nodeH: _nodeH,
-                        branch: selected == null
-                            ? null
-                            : graph.branchOf(selected),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _viewSize = constraints.biggest;
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                transformationController: _view,
+                constrained: false,
+                minScale: _minScale,
+                maxScale: _maxScale,
+                // Cho phép kéo quá mép: sơ đồ nhỏ hơn khung nhìn vẫn di chuyển
+                // được thay vì đứng yên như bị khoá.
+                boundaryMargin: const EdgeInsets.all(4000),
+                onInteractionStart: (_) {
+                  if (_showHint) setState(() => _showHint = false);
+                },
+                child: SizedBox(
+                  width: canvas.width,
+                  height: canvas.height,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: _EdgePainter(
+                            pos: pos,
+                            edges: edges,
+                            related: related,
+                            nodeW: _nodeW,
+                            nodeH: _nodeH,
+                            branch: selected == null
+                                ? null
+                                : graph.branchOf(selected),
+                          ),
+                        ),
                       ),
-                    ),
+                      for (final t in terms)
+                        Positioned(
+                          left: pos[t.id]!.dx,
+                          top: pos[t.id]!.dy,
+                          child: _GraphNode(
+                            term: t,
+                            learned: widget.repo.cachedStudyState(t.id).learned,
+                            needsReview: widget.repo
+                                .cachedStudyState(t.id)
+                                .needsReview,
+                            role: _roleOf(
+                              t.id,
+                              selected,
+                              ancestors,
+                              descendants,
+                            ),
+                            width: _nodeW,
+                            height: _nodeH,
+                            onTap: () {
+                              _select(t.id);
+                              _openQuickCard(byId, graph, t);
+                            },
+                          ),
+                        ),
+                    ],
                   ),
-                  for (final t in terms)
-                    Positioned(
-                      left: pos[t.id]!.dx,
-                      top: pos[t.id]!.dy,
-                      child: _GraphNode(
-                        term: t,
-                        learned: widget.repo.cachedStudyState(t.id).learned,
-                        needsReview: widget.repo
-                            .cachedStudyState(t.id)
-                            .needsReview,
-                        role: _roleOf(t.id, selected, ancestors, descendants),
-                        width: _nodeW,
-                        height: _nodeH,
-                        onTap: () {
-                          _select(t.id);
-                          _openQuickCard(byId, graph, t);
-                        },
-                      ),
-                    ),
+                ),
+              ),
+            ),
+            if (_showHint)
+              const Positioned(
+                left: 12,
+                bottom: 70,
+                child: IgnorePointer(child: _MapHint()),
+              ),
+            Positioned(
+              right: 12,
+              bottom: 12,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton.filledTonal(
+                    tooltip: 'Phóng to',
+                    onPressed: () => _zoomTo(_scale * 1.35),
+                    icon: const Icon(Icons.add),
+                  ),
+                  const SizedBox(height: 8),
+                  IconButton.filledTonal(
+                    tooltip: 'Thu nhỏ',
+                    onPressed: () => _zoomTo(_scale / 1.35),
+                    icon: const Icon(Icons.remove),
+                  ),
+                  const SizedBox(height: 8),
+                  IconButton.filledTonal(
+                    tooltip: 'Vừa màn hình',
+                    onPressed: _fitToView,
+                    icon: const Icon(Icons.fit_screen_outlined),
+                  ),
                 ],
               ),
             ),
-          ),
-        ),
-        if (_showHint)
-          const Positioned(
-            left: 12,
-            bottom: 70,
-            child: IgnorePointer(child: _MapHint()),
-          ),
-        Positioned(
-          right: 12,
-          bottom: 12,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton.filledTonal(
-                tooltip: 'Phóng to',
-                onPressed: () => _zoomTo(_scale * 1.35),
-                icon: const Icon(Icons.add),
+            if (selected != null)
+              Positioned(
+                left: 12,
+                bottom: 12,
+                child: FilledButton.tonalIcon(
+                  onPressed: () => _select(null),
+                  icon: const Icon(Icons.clear),
+                  label: Text('Bỏ nhánh của ${byId[selected]!.acronym}'),
+                ),
               ),
-              const SizedBox(height: 8),
-              IconButton.filledTonal(
-                tooltip: 'Thu nhỏ',
-                onPressed: () => _zoomTo(_scale / 1.35),
-                icon: const Icon(Icons.remove),
-              ),
-              const SizedBox(height: 8),
-              IconButton.filledTonal(
-                tooltip: 'Vừa màn hình',
-                onPressed: _fitToView,
-                icon: const Icon(Icons.fit_screen_outlined),
-              ),
-            ],
-          ),
-        ),
-        if (selected != null)
-          Positioned(
-            left: 12,
-            bottom: 12,
-            child: FilledButton.tonalIcon(
-              onPressed: () => _select(null),
-              icon: const Icon(Icons.clear),
-              label: Text('Bỏ nhánh của ${byId[selected]!.acronym}'),
-            ),
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -790,9 +803,9 @@ class _MapHint extends StatelessWidget {
               'Kéo để di chuyển · Chụm 2 ngón để thu phóng · mũi tên chỉ chiều học',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
           ),
         ],

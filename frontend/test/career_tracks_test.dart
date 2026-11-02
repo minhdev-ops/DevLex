@@ -9,8 +9,9 @@ import 'package:it_glossary/data/local/glossary_database.dart';
 import 'package:it_glossary/features/roadmap/roadmap_screen.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-/// Kho đóng gói gần như không có trường `career` (6.503/6.555 mục bỏ trống),
-/// nên lộ trình phải chọn thuật ngữ theo từ khóa/chủ đề thay vì đọc trường đó.
+/// Phần lớn mục từ quét từ nguồn không gắn trường career, nên lộ trình phải
+/// chọn thuật ngữ theo từ khóa/chủ đề (hoặc theo stages đã biên soạn) thay vì
+/// chỉ đọc trường đó.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 

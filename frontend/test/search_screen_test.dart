@@ -50,9 +50,9 @@ void main() {
 
     expect(find.text('API'), findsWidgets);
     expect(
-      find.text('3 nguồn'),
+      find.text('2 nguồn'),
       findsWidgets,
-      reason: 'MDN, RFC và bản biên soạn phải được đếm chung một khái niệm',
+      reason: 'MDN và bản biên soạn phải được đếm chung một khái niệm',
     );
   });
 

@@ -55,4 +55,24 @@ void main() {
       reason: 'MDN, RFC và bản biên soạn phải được đếm chung một khái niệm',
     );
   });
+
+  testWidgets('từ khóa dài trên màn 360dp không tràn layout', (tester) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const MaterialApp(home: SearchScreen()));
+    await tester.pumpAndSettle();
+
+    // Chuỗi dài + bàn phím mở làm vùng nội dung co lại: trước đây cột trạng
+    // thái "không tìm thấy" tràn 78-110px.
+    await tester.enterText(
+      find.byType(TextField),
+      'kubernetes cluster autoscaling configuration',
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('Không có mục từ'), findsOneWidget);
+  });
 }

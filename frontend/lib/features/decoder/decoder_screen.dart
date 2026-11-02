@@ -33,6 +33,22 @@ class _DecoderScreenState extends State<DecoderScreen> {
     _repo.warmUp().then((_) => _analyze());
   }
 
+  Brightness? _brightness;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Đổi sáng/tối phải tô lại chữ đã highlight, vì màu được chốt vào span
+    // lúc phân tích văn bản.
+    final next = Theme.of(context).brightness;
+    if (_brightness != null && _brightness != next && _spans != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _analyze();
+      });
+    }
+    _brightness = next;
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -61,7 +77,14 @@ class _DecoderScreenState extends State<DecoderScreen> {
     for (final token in result.tokens) {
       final term = token.termId == null ? null : _repo.termById(token.termId!);
       if (term == null) {
-        spans.add(TextSpan(text: token.text, style: theme.textTheme.bodyLarge));
+        spans.add(
+          TextSpan(
+            text: token.text,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+        );
       } else {
         final recognizer = TapGestureRecognizer()
           ..onTap = () => _showPopover(term);
@@ -70,12 +93,14 @@ class _DecoderScreenState extends State<DecoderScreen> {
         spans.add(
           TextSpan(
             text: token.text,
+            // onPrimaryContainer trên nền primaryContainer là cặp màu M3
+            // đảm bảo tương phản ở cả nền sáng và tối; trước đây dùng
+            // primary trên nền primaryContainer mờ nên chữ gần như biến mất
+            // khi bật giao diện tối.
             style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.primary,
+              color: theme.colorScheme.onPrimaryContainer,
               fontWeight: FontWeight.bold,
-              backgroundColor: theme.colorScheme.primaryContainer.withValues(
-                alpha: 0.5,
-              ),
+              backgroundColor: theme.colorScheme.primaryContainer,
             ),
             recognizer: recognizer,
           ),

@@ -32,6 +32,7 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final _controller = TextEditingController();
+  final _focus = FocusNode();
   final _repo = GlossaryRepository.instance;
   List<SearchResult> _results = const [];
   bool _ready = false;
@@ -90,6 +91,7 @@ class _SearchScreenState extends State<SearchScreen> {
   void dispose() {
     _repo.progressRevision.removeListener(_onProgressChanged);
     _controller.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -100,6 +102,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _openTerm(SearchResult result) async {
+    _focus.unfocus();
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => TermDetailScreen(termId: result.term.id),
@@ -110,6 +113,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _openTermById(String id) async {
+    _focus.unfocus();
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => TermDetailScreen(termId: id)));
@@ -117,6 +121,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _openContribute() async {
+    _focus.unfocus();
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const ContributionScreen()));
@@ -130,17 +135,12 @@ class _SearchScreenState extends State<SearchScreen> {
     if (mounted) setState(() {});
   }
 
-  /// Cho thấy quy mô kho dữ liệu đang có trên máy, không chỉ "offline" chung chung.
+  /// Một dòng ngắn về quy mô kho dữ liệu — đủ tin, không chiếm chỗ của kết quả.
   String _librarySummary() {
     if (!_ready) return 'Đang nạp kho thuật ngữ…';
     final n = _repo.termCount;
     if (n == 0) return 'Chưa có dữ liệu offline — bấm nút đồng bộ ở góc phải.';
-    final multi = _repo.corroboratedConceptCount;
-    final base =
-        '${_groupThousands(n)} thuật ngữ — 3 tầng tri thức, hoạt động offline';
-    return multi == 0
-        ? base
-        : '$base · ${_groupThousands(multi)} khái niệm có ≥2 nguồn xác nhận';
+    return '${_groupThousands(n)} thuật ngữ · dùng offline';
   }
 
   @override
@@ -200,9 +200,13 @@ class _SearchScreenState extends State<SearchScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _controller,
+                    focusNode: _focus,
                     autofocus: false,
                     textInputAction: TextInputAction.search,
                     onChanged: _ready ? _onQueryChanged : null,
+                    // Enter/ô tìm kiếm xong là hạ bàn phím, đừng để nó che
+                    // danh sách kết quả.
+                    onSubmitted: (_) => _focus.unfocus(),
                     decoration: InputDecoration(
                       hintText: 'Thử tìm: API, K8s, JWT, Docker...',
                       prefixIcon: const Icon(Icons.search),
@@ -214,6 +218,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               onPressed: () {
                                 _controller.clear();
                                 _onQueryChanged('');
+                                _focus.unfocus();
                               },
                             ),
                     ),
@@ -231,6 +236,8 @@ class _SearchScreenState extends State<SearchScreen> {
                   : _results.isNotEmpty
                   ? ListView.separated(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       itemCount: _results.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, index) => _TermResultTile(
@@ -282,47 +289,57 @@ class _NoMatchState extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Center(
-      child: Padding(
+    // Bàn phím mở làm khung nhìn co lại: nội dung phải cuộn được, nếu không
+    // cột tràn ra ngoài (lỗi "overflowed by 78 pixels" khi từ khóa dài).
+    return LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
         padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.search_off, size: 52, color: scheme.outline),
-            const SizedBox(height: 12),
-            Text(
-              'Không có mục từ khớp với “$query”',
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Thử viết tắt ngắn hơn (K8s thay vì Kubernetes) hoặc bỏ dấu cách thừa.\n'
-              'Nếu thuật ngữ chưa có trong kho, bạn có thể gửi đề xuất để chuyên gia kiểm duyệt.',
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: onContribute,
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: const Text('Đóng góp thuật ngữ này'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: onClear,
-                  icon: const Icon(Icons.backspace_outlined),
-                  label: const Text('Xóa từ khóa'),
-                ),
-              ],
-            ),
-          ],
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: box.maxHeight.isFinite
+                ? (box.maxHeight - 56).clamp(0.0, double.infinity)
+                : 0,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.search_off, size: 52, color: scheme.outline),
+              const SizedBox(height: 12),
+              Text(
+                'Không có mục từ khớp với “$query”',
+                style: Theme.of(context).textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Thử viết tắt ngắn hơn (K8s thay vì Kubernetes) hoặc bỏ dấu cách thừa.\n'
+                'Nếu thuật ngữ chưa có trong kho, bạn có thể gửi đề xuất để chuyên gia kiểm duyệt.',
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: onContribute,
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: const Text('Đóng góp thuật ngữ này'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: onClear,
+                    icon: const Icon(Icons.backspace_outlined),
+                    label: const Text('Xóa từ khóa'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -368,6 +385,8 @@ class _TermResultTile extends StatelessWidget {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         onTap: onTap,
+        // Mũi tên cho biết cả thẻ bấm được, không chỉ dòng chữ.
+        trailing: const Icon(Icons.chevron_right),
         title: Row(
           children: [
             Expanded(
@@ -473,10 +492,7 @@ class _HomeDashboard extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
       children: [
-        _HeroCard(
-          termCount: repo.termCount,
-          sourceCount: repo.corroboratedConceptCount,
-        ),
+        _HeroCard(termCount: repo.termCount),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -613,10 +629,9 @@ class _HomeDashboard extends StatelessWidget {
 }
 
 class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.termCount, required this.sourceCount});
+  const _HeroCard({required this.termCount});
 
   final int termCount;
-  final int sourceCount;
 
   @override
   Widget build(BuildContext context) {
@@ -660,24 +675,9 @@ class _HeroCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Định nghĩa 3 tầng · 4 lộ trình nghề · hoạt động offline',
+            '3 tầng định nghĩa · lộ trình nghề · dùng offline',
             style: text.bodyMedium,
           ),
-          if (sourceCount > 0) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Icon(Icons.verified_outlined, size: 16, color: scheme.primary),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    '${_groupThousands(sourceCount)} khái niệm được từ 2 nguồn trở lên xác nhận',
-                    style: text.bodySmall,
-                  ),
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );

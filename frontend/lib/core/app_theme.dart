@@ -16,9 +16,10 @@ class AppTheme {
 
   static ThemeData dark() => _build(
     ColorScheme.fromSeed(seedColor: primary, brightness: Brightness.dark),
-    scaffold: const Color(0xFF0D1217),
-    card: const Color(0xFF171E26),
-    field: const Color(0xFF171E26),
+    // Nền tối nhưng không đen tuyền: chữ và viền còn phân biệt được.
+    scaffold: const Color(0xFF111820),
+    card: const Color(0xFF1B2430),
+    field: const Color(0xFF1B2430),
   );
 
   static ThemeData _build(
@@ -27,7 +28,7 @@ class AppTheme {
     required Color card,
     required Color field,
   }) {
-    final outline = scheme.outlineVariant.withValues(alpha: 0.55);
+    final outline = scheme.outlineVariant.withValues(alpha: 0.75);
 
     return ThemeData(
       useMaterial3: true,
@@ -41,6 +42,7 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         elevation: 0,
+        clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(color: outline),

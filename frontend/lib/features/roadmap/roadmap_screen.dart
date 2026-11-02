@@ -349,8 +349,18 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
   static const _xGap = 180.0;
   static const _yGap = 96.0;
   static const _pad = 24.0;
+  static const _minScale = 0.35;
+  static const _maxScale = 2.5;
+
+  /// Controller tường minh để ngoài thao tác chụm hai ngón còn có nút phóng
+  /// to / thu nhỏ / canh vừa màn hình — người dùng không quen gesture vẫn xem
+  /// được toàn bộ sơ đồ.
+  final _view = TransformationController();
 
   String? _selectedId;
+  bool _showHint = true;
+  Size _canvas = Size.zero;
+  bool _needFit = true;
 
   @override
   void didUpdateWidget(covariant KnowledgeGraphView old) {
@@ -359,9 +369,58 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
     if (_selectedId != null && widget.terms.every((t) => t.id != _selectedId)) {
       _selectedId = null;
     }
+    // Đổi lộ trình thì canh lại khung nhìn; chấm điểm thẻ chỉ đổi trạng thái
+    // node nên phải giữ nguyên chỗ người dùng đang xem.
+    final sameShape =
+        old.terms.length == widget.terms.length &&
+        (old.terms.isEmpty || old.terms.first.id == widget.terms.first.id);
+    if (!sameShape) _needFit = true;
+  }
+
+  @override
+  void dispose() {
+    _view.dispose();
+    super.dispose();
   }
 
   void _select(String? id) => setState(() => _selectedId = id);
+
+  double get _scale => _view.value.getMaxScaleOnAxis();
+
+  /// Thu phóng quanh tâm khung nhìn để nội dung không nhảy ra ngoài màn hình.
+  void _zoomTo(double target) {
+    final box = context.size;
+    if (box == null || box.isEmpty) return;
+    final current = _scale;
+    final next = target.clamp(_minScale, _maxScale);
+    if ((next - current).abs() < 0.001) return;
+    final k = next / current;
+    final t = _view.value.getTranslation();
+    final cx = box.width / 2;
+    final cy = box.height / 2;
+    _view.value = Matrix4.identity()
+      ..setEntry(0, 0, next)
+      ..setEntry(1, 1, next)
+      ..setEntry(0, 3, cx - (cx - t.x) * k)
+      ..setEntry(1, 3, cy - (cy - t.y) * k);
+  }
+
+  /// Canh toàn bộ sơ đồ vào khung nhìn, không phóng quá cỡ thật.
+  void _fitToView() {
+    final box = context.size;
+    if (box == null || box.isEmpty || _canvas.isEmpty) return;
+    final byWidth = box.width / _canvas.width;
+    final byHeight = box.height / _canvas.height;
+    final scale = (byWidth < byHeight ? byWidth : byHeight).clamp(
+      _minScale,
+      1.0,
+    );
+    _view.value = Matrix4.identity()
+      ..setEntry(0, 0, scale)
+      ..setEntry(1, 1, scale)
+      ..setEntry(0, 3, (box.width - _canvas.width * scale) / 2)
+      ..setEntry(1, 3, (box.height - _canvas.height * scale) / 2);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -387,6 +446,18 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
       }
     });
 
+    final canvas = Size(
+      _pad * 2 + (maxCol + 1) * _xGap,
+      _pad * 2 + (maxRow == 0 ? 1 : maxRow) * _yGap,
+    );
+    _canvas = canvas;
+    if (_needFit) {
+      _needFit = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fitToView();
+      });
+    }
+
     final selected = (_selectedId != null && byId.containsKey(_selectedId))
         ? _selectedId!
         : null;
@@ -401,49 +472,88 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
       children: [
         Positioned.fill(
           child: InteractiveViewer(
+            transformationController: _view,
             constrained: false,
-            minScale: 0.4,
-            maxScale: 2.5,
+            minScale: _minScale,
+            maxScale: _maxScale,
+            // Cho phép kéo quá mép: sơ đồ nhỏ hơn khung nhìn vẫn di chuyển
+            // được thay vì đứng yên như bị khoá.
+            boundaryMargin: const EdgeInsets.all(4000),
+            onInteractionStart: (_) {
+              if (_showHint) setState(() => _showHint = false);
+            },
             child: SizedBox(
-              width: _pad * 2 + (maxCol + 1) * _xGap,
-              height: _pad * 2 + (maxRow == 0 ? 1 : maxRow) * _yGap,
+              width: canvas.width,
+              height: canvas.height,
               child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: _EdgePainter(
-                          pos: pos,
-                          edges: edges,
-                          nodeW: _nodeW,
-                          nodeH: _nodeH,
-                          branch: selected == null
-                              ? null
-                              : graph.branchOf(selected),
-                        ),
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _EdgePainter(
+                        pos: pos,
+                        edges: edges,
+                        nodeW: _nodeW,
+                        nodeH: _nodeH,
+                        branch: selected == null
+                            ? null
+                            : graph.branchOf(selected),
                       ),
                     ),
-                    for (final t in terms)
-                      Positioned(
-                        left: pos[t.id]!.dx,
-                        top: pos[t.id]!.dy,
-                        child: _GraphNode(
-                          term: t,
-                          learned: widget.repo.cachedStudyState(t.id).learned,
-                          needsReview: widget.repo
-                              .cachedStudyState(t.id)
-                              .needsReview,
-                          role: _roleOf(t.id, selected, ancestors, descendants),
-                          width: _nodeW,
-                          height: _nodeH,
-                          onTap: () {
-                            _select(t.id);
-                            _openQuickCard(byId, graph, t);
-                          },
-                        ),
+                  ),
+                  for (final t in terms)
+                    Positioned(
+                      left: pos[t.id]!.dx,
+                      top: pos[t.id]!.dy,
+                      child: _GraphNode(
+                        term: t,
+                        learned: widget.repo.cachedStudyState(t.id).learned,
+                        needsReview: widget.repo
+                            .cachedStudyState(t.id)
+                            .needsReview,
+                        role: _roleOf(t.id, selected, ancestors, descendants),
+                        width: _nodeW,
+                        height: _nodeH,
+                        onTap: () {
+                          _select(t.id);
+                          _openQuickCard(byId, graph, t);
+                        },
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
+            ),
+          ),
+        ),
+        if (_showHint)
+          const Positioned(
+            left: 12,
+            top: 12,
+            child: IgnorePointer(child: _MapHint()),
+          ),
+        Positioned(
+          right: 12,
+          bottom: 12,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton.filledTonal(
+                tooltip: 'Phóng to',
+                onPressed: () => _zoomTo(_scale * 1.35),
+                icon: const Icon(Icons.add),
+              ),
+              const SizedBox(height: 8),
+              IconButton.filledTonal(
+                tooltip: 'Thu nhỏ',
+                onPressed: () => _zoomTo(_scale / 1.35),
+                icon: const Icon(Icons.remove),
+              ),
+              const SizedBox(height: 8),
+              IconButton.filledTonal(
+                tooltip: 'Vừa màn hình',
+                onPressed: _fitToView,
+                icon: const Icon(Icons.fit_screen_outlined),
+              ),
+            ],
           ),
         ),
         if (selected != null)
@@ -522,6 +632,45 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
     for (final id in ids)
       if (byId[id] != null) byId[id]!,
   ];
+}
+
+/// Gợi ý thao tác trên sơ đồ; tự ẩn sau lần chạm/kéo đầu tiên để không rối mắt.
+class _MapHint extends StatelessWidget {
+  const _MapHint();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 280),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.pan_tool_alt_outlined,
+            size: 14,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              'Kéo để di chuyển · Chụm 2 ngón để thu phóng',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Trọng tâm highlight của sơ đồ khi một node được chọn.

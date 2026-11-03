@@ -12,6 +12,8 @@
 - **Widget test `term_detail_tier2_test`**: Two new tests guarantee that the Tier-2 card and its flow diagram always render for terms with and without `###` sections.
 
 ### Changed
+- **iOS artifact is now a real .ipa**: the pipeline emits `DevLex-unsigned.ipa` (`Payload/Runner.app` at the root) instead of a .zip, because Sideloadly rejects a zip or a bare .app folder and needs the .ipa extension.
+- **Device-build guard**: CI now asserts `DTPlatformName == iphoneos` and an `arm64` `Runner` binary, so a simulator build can never ship by mistake.
 - `delta_sync_flow_test`: Assertions for trust and attribution cards now use `skipOffstage: false`, because the always-on Tier-2 card makes the detail screen taller and pushes lower cards below the test viewport fold.
 
 ### Fixed

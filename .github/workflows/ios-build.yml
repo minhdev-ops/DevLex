@@ -58,12 +58,10 @@ jobs:
         # This produces build/ios/archive/Runner.xcarchive (not an .ipa).
         run: flutter build ipa --release --no-codesign
 
-      - name: Package Runner.app into a zip
+      - name: Locate Runner.app
+        id: locate
         run: |
           set -euo pipefail
-
-          # flutter build ipa -> xcarchive; flutter build ios -> iphoneos/.
-          # Accept whichever the toolchain produced.
           ARCHIVE_APP="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
           DEVICE_APP="build/ios/iphoneos/Runner.app"
           APP_PATH=""
@@ -80,24 +78,69 @@ jobs:
           fi
 
           echo "Found app bundle: $APP_PATH"
+          echo "app_path=$APP_PATH" >> "$GITHUB_OUTPUT"
 
-          # Wrapping in Payload/ makes the zip a valid unsigned .ipa:
-          # rename it to .ipa and Sideloadly accepts it directly.
+      - name: Verify device build
+        # Guards against shipping a simulator binary: Sideloadly needs an arm64
+        # build whose platform is iphoneos, not iphonesimulator.
+        run: |
+          set -euo pipefail
+          APP_PATH="${{ steps.locate.outputs.app_path }}"
+
+          echo "== Binary architecture =="
+          lipo -info "$APP_PATH/Runner"
+
+          PLATFORM=$(/usr/libexec/PlistBuddy -c 'Print :DTPlatformName' "$APP_PATH/Info.plist")
+          echo "DTPlatformName = $PLATFORM"
+          if [ "$PLATFORM" != "iphoneos" ]; then
+            echo "::error::Built for '$PLATFORM', not 'iphoneos'. Sideloadly needs a device build."
+            exit 1
+          fi
+
+          ARCH=$(lipo -info "$APP_PATH/Runner")
+          case "$ARCH" in
+            *arm64*) ;;
+            *)
+              echo "::error::Runner is not arm64 - this is not a real-device build."
+              exit 1
+              ;;
+          esac
+
+      - name: Package as unsigned .ipa
+        # An .ipa is just a zip with Payload/Runner.app at its root. Sideloadly
+        # requires the .ipa extension (it rejects a .zip or a bare .app folder)
+        # and re-signs it with your Apple ID, so no signing happens here.
+        run: |
+          set -euo pipefail
+          APP_PATH="${{ steps.locate.outputs.app_path }}"
+
           rm -rf build/unsigned
           mkdir -p build/unsigned/Payload
           cp -R "$APP_PATH" build/unsigned/Payload/Runner.app
 
           cd build/unsigned
           # -y keeps the symlinks inside Frameworks/ intact.
-          zip -r -y -q ios-build-app.zip Payload
+          zip -r -y -q DevLex-unsigned.ipa Payload
 
-          echo "Archive size: $(du -h ios-build-app.zip | cut -f1)"
-          unzip -l ios-build-app.zip | head -5
+          echo "IPA size: $(du -h DevLex-unsigned.ipa | cut -f1)"
+
+          # Capture the listing once: piping into head/grep under pipefail can
+          # abort with SIGPIPE and fail the step for no real reason.
+          LISTING=$(unzip -l DevLex-unsigned.ipa)
+          printf '%s\n' "$LISTING" | sed -n '1,6p'
+          case "$LISTING" in
+            *"Payload/Runner.app/Runner"*) ;;
+            *)
+              echo "::error::Payload/Runner.app/Runner missing from the ipa."
+              exit 1
+              ;;
+          esac
+
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: ios-build-app
-          path: frontend/build/unsigned/ios-build-app.zip
+          path: frontend/build/unsigned/DevLex-unsigned.ipa
           if-no-files-found: error
           retention-days: 30

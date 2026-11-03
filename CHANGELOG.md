@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Added
-- **Linux sideload helper**: added `scripts/linux-sideload.sh` that signs the unsigned CI .ipa with a free Apple ID (node-applesign) and installs it over USB (ideviceinstaller), so the app runs like a normal iPhone app without a macOS/Windows machine.
+- **Linux sideload helper**: added scripts/linux-sideload.sh that fetches the latest unsigned .ipa from CI and prints the exact steps to install it on an iPhone from a Linux box (Sideloadly via Wine, or Sidestore fully on-device). iOS refuses to run unsigned apps, so signing with a free Apple ID is required before the app launches.
 - **iOS build pipeline**: `.github/workflows/ios-build.yml` builds an unsigned iOS app on `macos-latest` on every push to `main` (or manual dispatch) and uploads it as the `ios-build-app` artifact, ready for Sideloadly — no Apple Developer Account required.
 - **iOS platform scaffolding**: committed `frontend/ios/` (bundle id `com.devlex.itGlossary`, display name DevLex) with full-bleed DevLex app icons generated from the shared branding logo, so the app no longer ships with Flutter's default icon on iPhone.
 - **Tier-2 always visible**: The "TẦNG 2 — BỐI CẢNH & TRỰC QUAN" card now renders for every term, even when `detailedExplanation` or `metaphorAnalogy` is missing. Users no longer encounter terms with a gap between Tier 1 and Tier 3.

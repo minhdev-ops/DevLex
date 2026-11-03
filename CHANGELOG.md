@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Added
+- **iOS build pipeline**: `.github/workflows/ios-build.yml` builds an unsigned iOS app on `macos-latest` on every push to `main` (or manual dispatch) and uploads it as the `ios-build-app` artifact, ready for Sideloadly — no Apple Developer Account required.
+- **iOS platform scaffolding**: committed `frontend/ios/` (bundle id `com.devlex.itGlossary`, display name DevLex) with full-bleed DevLex app icons generated from the shared branding logo, so the app no longer ships with Flutter's default icon on iPhone.
 - **Tier-2 always visible**: The "TẦNG 2 — BỐI CẢNH & TRỰC QUAN" card now renders for every term, even when `detailedExplanation` or `metaphorAnalogy` is missing. Users no longer encounter terms with a gap between Tier 1 and Tier 3.
 - **Structured explanation sections**: `detailedExplanation` text containing `###` headings is split into titled sub-sections with colored icons, making Tier 2 visually distinct from the Tier 1 definition instead of a duplicated wall of text.
 - **Enlarged, colored flow-diagram arrows**: Arrows in the context flow board are now 18 px and use the Tier-2 accent color so the drawn relationships are immediately obvious.

@@ -1,0 +1,103 @@
+name: iOS Build (unsigned)
+
+# Builds an unsigned iOS .app on a macOS runner so it can be sideloaded
+# with Sideloadly from a Linux machine (no Apple Developer Account needed).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# A newer push on the same branch cancels the previous build.
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.41.6' # pin for reproducible builds; delete to track latest stable
+
+jobs:
+  build-ios:
+    name: Build unsigned iOS app
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    defaults:
+      run:
+        # The Flutter project lives in frontend/, not at the repo root.
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Toolchain info
+        run: |
+          flutter --version
+          xcodebuild -version
+          pod --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build unsigned archive
+        # --no-codesign skips signing/export, so no Apple account is required.
+        # This produces build/ios/archive/Runner.xcarchive (not an .ipa).
+        run: flutter build ipa --release --no-codesign
+
+      - name: Package Runner.app into a zip
+        run: |
+          set -euo pipefail
+
+          # flutter build ipa -> xcarchive; flutter build ios -> iphoneos/.
+          # Accept whichever the toolchain produced.
+          ARCHIVE_APP="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
+          DEVICE_APP="build/ios/iphoneos/Runner.app"
+          APP_PATH=""
+          if [ -d "$ARCHIVE_APP" ]; then
+            APP_PATH="$ARCHIVE_APP"
+          elif [ -d "$DEVICE_APP" ]; then
+            APP_PATH="$DEVICE_APP"
+          fi
+
+          if [ -z "$APP_PATH" ]; then
+            echo "::error::Runner.app not found. Contents of build/ios:"
+            ls -R build/ios || true
+            exit 1
+          fi
+
+          echo "Found app bundle: $APP_PATH"
+
+          # Wrapping in Payload/ makes the zip a valid unsigned .ipa:
+          # rename it to .ipa and Sideloadly accepts it directly.
+          rm -rf build/unsigned
+          mkdir -p build/unsigned/Payload
+          cp -R "$APP_PATH" build/unsigned/Payload/Runner.app
+
+          cd build/unsigned
+          # -y keeps the symlinks inside Frameworks/ intact.
+          zip -r -y -q ios-build-app.zip Payload
+
+          echo "Archive size: $(du -h ios-build-app.zip | cut -f1)"
+          unzip -l ios-build-app.zip | head -5
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-app
+          path: frontend/build/unsigned/ios-build-app.zip
+          if-no-files-found: error
+          retention-days: 30

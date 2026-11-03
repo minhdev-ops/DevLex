@@ -1,20 +1,18 @@
 #!/usr/bin/env bash
 #
-# linux-sideload.sh - chuan bi va huong dan cai app iOS len iPhone TU MAY LINUX.
+# linux-sideload.sh - tu dong tai .ipa va mo Sideloadly (Wine) de cai len iPhone.
 #
 # QUAN TRONG: iOS KHONG cho chay app chua ky (unsigned). File .ipa tu CI la
-# unsigned, nen du copy vao may cung chi ra icon "ma" khong mo duoc.
-# Tren Linux, voi tai khoan Apple ID mien phi, cach chay thuc te la:
-#   (B) Sideloadly chay tren Wine  -  hoac
-#   (A) Sidestore tren chinh iPhone (khong can PC, xem cuoi script).
+# unsigned, nen phai ky bang Apple ID mien phi qua Sideloadly truoc khi chay.
+# Script nay: (1) tu tai .ipa moi nhat, (2) mo Sideloadly qua Wine voi file do.
+# Ban chi viec nhap Apple ID trong cua so Sideloadly roi bam Start.
 #
-# Yeu cau (cai mot lan):
+# Yeu cau (cai mot lan tren may Linux cua ban):
 #   sudo apt install -y wine64 usbmuxd libimobiledevice-utils
-#   (Sideloadly.exe: tai tu https://sideloadly.io roi cai tren Wine)
+#   Tai Sideloadly.exe tu https://sideloadly.io, cai: wine SideloadlySetup.exe
 #
 # Dung:
 #   ./scripts/linux-sideload.sh [duong-dan.ipa]
-#   # bo trong duong-dan de tu tai artifact moi nhat tu GitHub.
 
 set -euo pipefail
 
@@ -43,23 +41,17 @@ if [ ! -f "$IPA" ]; then
   exit 1
 fi
 
-echo ""
-echo "=========================================================="
-echo " FILE .ipa da san sang:"
-echo "   $IPA"
-echo ""
-echo " CACH B (Sideloadly tren Wine) - khuyen dung cho Linux:"
-echo "   1. Cai Wine + usbmuxd (len)."
-echo "   2. Tai Sideloadly.exe tu https://sideloadly.io, cai bang:"
-echo "        wine SideloadlySetup.exe"
-echo "   3. Cam iPhone (mo khoa man hinh), chay:"
-echo "        wine "$HOME/.wine/drive_c/Program Files/Sideloadly/Sideloadly.exe""
-echo "   4. Keo file .ipa vao Sideloadly, nhap Apple ID, bam Start."
-echo "   5. Tren iPhone: Cai dat > Cai dat chung > VPN & Quan ly thiet bi"
-echo "      > tin cay Apple ID cua ban. Mo app DevLex nhu binh thuong."
-echo ""
-echo " CACH A (Sidestore - khong can PC, chi tren iPhone):"
-echo "   1. Cai Sidestore tu https://sidestore.io (dung Apple ID mien phi)."
-echo "   2. Mo file .ipa bang Safari > Chia se > Mo trong Sidestore."
-echo "   3. Sidestore tu ky va cai. App het han sau 7 ngay (tu gia han khi cung WiFi)."
-echo "=========================================================="
+SIDE="$HOME/.wine/drive_c/Program Files/Sideloadly/Sideloadly.exe"
+
+if [ ! -f "$SIDE" ]; then
+  echo "::error::Chua thay Sideloadly.exe tai: $SIDE"
+  echo "   Cai bang: wine SideloadlySetup.exe (tai tu https://sideloadly.io)"
+  exit 1
+fi
+
+echo ">> Mo Sideloadly qua Wine voi file .ipa..."
+echo "   File: $IPA"
+echo "   (Trong cua so Sideloadly: nhap Apple ID, chon Device, bam Start)"
+echo "   Sau do tren iPhone: Cai dat > Cai dat chung > VPN & Quan ly thiet bi > tin cay Apple ID"
+wine "$SIDE" "$IPA" >/dev/null 2>&1 &
+echo ">> Da mo Sideloadly. Hoan tat dang nhap Apple ID trong cua so do."
